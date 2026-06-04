@@ -76,7 +76,11 @@ export default function TasksPage() {
     const tks = await getTasks();
     setTasks(tks);
     if (r.ok) {
-      setRunNote(`Done — ${r.created_this_run?.leads ?? 0} new lead(s), ${r.created_this_run?.drafts ?? 0} draft(s) this run. Open the Leads page to review.`);
+      const cost = r.usage?.est_cost_usd != null ? ` (run cost ~$${r.usage.est_cost_usd.toFixed(2)})` : '';
+      setRunNote(`Done — ${r.created_this_run?.leads ?? 0} new lead(s), ${r.created_this_run?.drafts ?? 0} draft(s) this run${cost}. Open the Leads page to review.`);
+    } else if (r.quota_exceeded) {
+      // In-character capacity message — an upsell, not an error.
+      setRunNote(r.message ?? 'This employee has hit their monthly capacity.');
     } else {
       setRunNote(`Run failed: ${r.error ?? 'unknown error'}`);
     }

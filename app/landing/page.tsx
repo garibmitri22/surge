@@ -89,36 +89,41 @@ const upcomingEmployees = [
 
 const plans = [
   {
-    name: "Basic",
-    price: "$299",
+    name: "Single Employee",
+    price: "$399",
     period: "/mo",
-    description: "Perfect for getting started",
-    features: ["1 AI employee", "Daily reports", "Email support", "Basic integrations"],
+    description: "One AI hire, fully onboarded to your business",
+    features: [
+      "1 AI employee — Aria, Nova, or Opus",
+      "Works a full workday, every day",
+      "Daily reports & live dashboard",
+      "Email support",
+    ],
     highlighted: false,
   },
   {
-    name: "Growth",
-    price: "$897",
+    name: "Hire the Team",
+    price: "$999",
     period: "/mo",
-    description: "For growing businesses",
+    description: "Your whole AI workforce — the way Surge is meant to run",
     features: [
-      "3 AI employees",
-      "Real-time dashboards",
+      "All 3 AI employees — Aria, Nova & Opus",
+      "Your whole team works a full workday, every day",
+      "Real-time Workforce Performance Score",
       "Priority support",
-      "Advanced integrations",
-      "Custom training",
+      "Custom training on your business",
     ],
     highlighted: true,
-    badge: "Most hired",
+    badge: "Most popular",
   },
   {
     name: "Enterprise",
     price: "Custom",
     period: "",
-    description: "For large organizations",
+    description: "For larger teams with custom needs",
     features: [
       "Unlimited employees",
-      "Custom AI training",
+      "Higher capacity & custom quotas",
       "Dedicated support",
       "Enterprise integrations",
       "SLA guarantee",
@@ -216,8 +221,8 @@ function Hero() {
           transition={{ duration: 0.6, delay: 0.1 }}
           className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto text-pretty"
         >
-          AI employees that sell, market, and operate your business — 24/7, for
-          $299 a month. No salaries. No turnover. No sick days.
+          AI employees that sell, market, and operate your business — 24/7, from
+          $399 a month. No salaries. No turnover. No sick days.
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}

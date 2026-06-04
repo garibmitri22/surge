@@ -80,7 +80,14 @@ export async function getPipelineStats(): Promise<{ total: number; overdue: numb
   return { total: leads.length, overdue };
 }
 
-export async function runTask(taskId: string): Promise<{ ok: boolean; error?: string; created_this_run?: { leads: number; drafts: number }; message?: string }> {
+export async function runTask(taskId: string): Promise<{
+  ok: boolean;
+  error?: string;
+  quota_exceeded?: boolean;
+  created_this_run?: { leads: number; drafts: number };
+  usage?: { runs_used?: number; runs_limit?: number; period?: string; est_cost_usd?: number };
+  message?: string;
+}> {
   const res = await fetch('/api/agent/run', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

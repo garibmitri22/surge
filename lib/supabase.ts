@@ -232,9 +232,67 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['lead_drafts']['Insert']>;
         Relationships: [];
       };
+      usage_counters: {
+        Row: {
+          company_id: string;
+          employee_id: string;
+          period: string;
+          runs_used: number;
+          cycles_used: number;
+          media_used: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          company_id: string;
+          employee_id: string;
+          period: string;
+          runs_used?: number;
+          cycles_used?: number;
+          media_used?: number;
+        };
+        Update: Partial<Database['public']['Tables']['usage_counters']['Insert']>;
+        Relationships: [];
+      };
+      usage_log: {
+        Row: {
+          id: string;
+          company_id: string;
+          employee_id: string;
+          task_id: string | null;
+          run_id: string | null;
+          model: string;
+          input_tokens: number;
+          cache_read_tokens: number;
+          output_tokens: number;
+          web_searches: number;
+          est_cost_usd: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          employee_id: string;
+          task_id?: string | null;
+          run_id?: string | null;
+          model: string;
+          input_tokens?: number;
+          cache_read_tokens?: number;
+          output_tokens?: number;
+          web_searches?: number;
+          est_cost_usd?: number;
+        };
+        Update: Partial<Database['public']['Tables']['usage_log']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      consume_task_run: {
+        Args: { p_company: string; p_employee: string; p_period: string; p_limit: number };
+        Returns: number | null;
+      };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
