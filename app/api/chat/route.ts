@@ -51,11 +51,21 @@ async function executeTool(
 ): Promise<string> {
   const now = Date.now();
   if (name === 'create_task') {
+    // Resolve the assignee — anyone on the team (the Chief of Staff routes work).
+    // Defaults to the current employee. Input is sanitized before it touches a filter.
+    let assigneeId = employeeId;
+    let assigneeName = '';
+    const key = String(input.assignee ?? '').trim().toLowerCase().replace(/[^a-z0-9 ]/g, '');
+    if (key) {
+      let { data: emp } = await supabase.from('employees').select('id, name').eq('id', key).maybeSingle();
+      if (!emp) ({ data: emp } = await supabase.from('employees').select('id, name').ilike('name', key).maybeSingle());
+      if (emp) { assigneeId = emp.id; assigneeName = emp.name; }
+    }
     const { error } = await supabase.from('tasks').insert({
       id: 't' + now,
       company_id: companyId,
       title: String(input.title ?? '').trim() || 'Untitled task',
-      assignee_id: employeeId,
+      assignee_id: assigneeId,
       priority: (input.priority as string) || 'medium',
       project: (input.project as string) || 'General',
       status: 'queued',
@@ -64,21 +74,25 @@ async function executeTool(
       sort_order: now,
     });
     if (error) return `ERROR creating task: ${error.message}`;
-    return `Task created and assigned to you: "${input.title}" (${input.priority} priority).`;
+    const who = assigneeId !== employeeId ? `to ${assigneeName || assigneeId}` : 'to you';
+    return `Task created and assigned ${who}: "${input.title}" (${input.priority} priority).`;
   }
   if (name === 'remember_detail') {
+    const ALLOWED = ['decision', 'open-loop', 'idea', 'rapport', 'note'];
+    const kind = ALLOWED.includes(String(input.kind)) ? String(input.kind) : 'rapport';
+    const defaultTitle = kind === 'rapport' ? 'Personal note' : kind.charAt(0).toUpperCase() + kind.slice(1);
     const { error } = await supabase.from('memory_entries').insert({
       id: 'm' + now,
       company_id: companyId,
-      type: 'note',
-      title: (input.title as string) || 'Personal note',
+      type: kind === 'rapport' ? 'note' : kind,
+      title: (input.title as string) || defaultTitle,
       content: String(input.content ?? ''),
-      tags: ['rapport'],
+      tags: [kind],
       updated_at: todayStr(),
       sort_order: now,
     });
     if (error) return `ERROR saving memory: ${error.message}`;
-    return `Saved to memory. I'll remember that.`;
+    return `Saved to memory (${kind}). I'll remember that.`;
   }
   return `Unknown tool: ${name}`;
 }
@@ -169,6 +183,37 @@ export async function POST(request: Request) {
     supabase.from('employees').select('name, role, status, bio').order('name', { ascending: true }),
   ]);
 
+  // ---- Chief of Staff (Atlas) sees the WHOLE board, not just his own work ----
+  const isChiefOfStaff = employee.role === 'Chief of Staff' || employeeId === 'atlas';
+  let allTasks: { title: string; status: string; project: string; due_date: string; assignee_id: string }[] = [];
+  let leadPipeline: { total: number; qualified: number; drafted: number; pendingDrafts: number; overdue: number } | null = null;
+  let kpiSnapshot: { employee: string; open: number; done: number }[] = [];
+  if (isChiefOfStaff) {
+    const [{ data: everyTask }, { data: leadRows }, { data: draftRows }] = await Promise.all([
+      supabase.from('tasks').select('title, status, project, due_date, assignee_id').eq('company_id', companyId).order('sort_order', { ascending: false }).limit(200),
+      supabase.from('leads').select('status, next_action_at').eq('company_id', companyId).limit(1000),
+      supabase.from('lead_drafts').select('approval_status').eq('company_id', companyId).limit(1000),
+    ]);
+    const tasksAll = (everyTask ?? []) as typeof allTasks;
+    allTasks = tasksAll.filter((t) => t.status !== 'completed');
+    const leads = (leadRows ?? []) as { status: string; next_action_at: string | null }[];
+    const now = Date.now();
+    leadPipeline = {
+      total: leads.length,
+      qualified: leads.filter((l) => l.status === 'qualified').length,
+      drafted: leads.filter((l) => l.status === 'drafted').length,
+      pendingDrafts: ((draftRows ?? []) as { approval_status: string }[]).filter((d) => d.approval_status === 'pending').length,
+      overdue: leads.filter((l) => l.next_action_at && new Date(l.next_action_at).getTime() < now && l.status !== 'disqualified' && l.status !== 'meeting').length,
+    };
+    const byEmp: Record<string, { open: number; done: number }> = {};
+    for (const t of tasksAll) {
+      const e = t.assignee_id || 'unknown';
+      (byEmp[e] ??= { open: 0, done: 0 });
+      if (t.status === 'completed') byEmp[e].done++; else byEmp[e].open++;
+    }
+    kpiSnapshot = Object.entries(byEmp).map(([employeeKey, v]) => ({ employee: employeeKey, open: v.open, done: v.done }));
+  }
+
   const persona = await loadPersona(employeeId);
   const system = buildSystemPrompt({
     persona,
@@ -178,6 +223,10 @@ export async function POST(request: Request) {
     tasks: (taskRows as Ctx['tasks']) ?? [],
     activity: (activityRows as Ctx['activity']) ?? [],
     roster: (rosterRows as Ctx['roster']) ?? [],
+    isChiefOfStaff,
+    allTasks,
+    leadPipeline,
+    kpiSnapshot,
   });
 
   const client = new Anthropic();

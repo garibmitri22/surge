@@ -108,7 +108,12 @@ insert into employees (id, name, role, avatar, color, status, current_task, perf
  'Opus is your AI Operations Assistant — systematic, precise, and thorough. He keeps the business running: inbox, SOPs, reporting, coordination.',
  'Precise, systematic, thorough. Finds inefficiencies and documents everything.',
  '[{"label":"Tasks Completed","value":"312","change":6},{"label":"Hours Saved","value":"47","change":14},{"label":"Projects Managed","value":"8","change":0}]'::jsonb,
- '["Inbox triage and priority flagging","Task creation and assignment routing","SOP generation and documentation","Weekly performance reporting","Project coordination and tracking","Process optimization and bottleneck identification","Meeting notes and action item tracking"]'::jsonb);
+ '["Inbox triage and priority flagging","Task creation and assignment routing","SOP generation and documentation","Weekly performance reporting","Project coordination and tracking","Process optimization and bottleneck identification","Meeting notes and action item tracking"]'::jsonb),
+('atlas', 'Atlas', 'Chief of Staff', 'AT', '#f59e0b', 'active', 'Holding the whole board — your brief is ready each morning', 0, '100%', 0,
+ 'Atlas is your AI Chief of Staff — the backbone of the team. He carries the whole picture so you can carry the decision: every task, lead, KPI, and open loop across the workforce. He briefs you each morning, routes work to Aria, Nova, and Opus, and never lets a commitment quietly die.',
+ 'Calm gravity — measured, certain, economical. The last honest voice in the room: total context, ruthless prioritization, relentless follow-through, zero ego.',
+ '[{"label":"Owner Conversations","value":"0","change":0},{"label":"Tasks Routed","value":"0","change":0},{"label":"Open Loops Closed","value":"0","change":0}]'::jsonb,
+ '["Daily morning brief (Top 3, decisions needed, team status, the number)","Turning ideas into assigned tasks with owners and deadlines","Routing and chasing work across Aria, Nova, and Opus","Tracking every open loop and surfacing slips with a recovery plan","Logging decisions and their reasoning to company memory","Cross-team pattern recognition and connecting work across lanes","90-day pre-mortems on new directions"]'::jsonb);
 
 -- Seed: tasks (sort_order descending so t1..t10 render in original order) ------
 insert into tasks (id, title, assignee_id, priority, project, status, created_at, due_date, sort_order) values
