@@ -20,6 +20,7 @@ interface Employee {
   accent: string;
   description: string;
   stats: { label: string; value: string }[];
+  tagline?: string;
 }
 
 const employees: Employee[] = [
@@ -59,6 +60,19 @@ const employees: Employee[] = [
       { label: "Accuracy", value: "99.7%" },
     ],
   },
+  {
+    name: "Atlas",
+    role: "Chief of Staff",
+    initials: "AT",
+    accent: "#f59e0b",
+    tagline: "Included in every plan",
+    description: "Briefs you every morning, turns your ideas into assigned work, and keeps the whole team moving. The reason the others run as a team.",
+    stats: [
+      { label: "Morning brief", value: "Daily" },
+      { label: "Open loops dropped", value: "0" },
+      { label: "The whole board", value: "Tracked" },
+    ],
+  },
 ];
 
 const steps = [
@@ -92,11 +106,12 @@ const plans = [
     name: "Single Employee",
     price: "$399",
     period: "/mo",
-    description: "One AI hire, fully onboarded to your business",
+    description: "One working AI employee — run by your Chief of Staff",
     features: [
       "1 AI employee — Aria, Nova, or Opus",
+      "Atlas, your Chief of Staff — included",
+      "Daily morning brief & live dashboard",
       "Works a full workday, every day",
-      "Daily reports & live dashboard",
       "Email support",
     ],
     highlighted: false,
@@ -105,13 +120,13 @@ const plans = [
     name: "Hire the Team",
     price: "$999",
     period: "/mo",
-    description: "Your whole AI workforce — the way Surge is meant to run",
+    description: "Four employees — $250 each — run by a Chief of Staff",
     features: [
-      "All 3 AI employees — Aria, Nova & Opus",
+      "Aria, Nova & Opus — your full AI workforce",
+      "Atlas, your Chief of Staff — included",
       "Your whole team works a full workday, every day",
       "Real-time Workforce Performance Score",
-      "Priority support",
-      "Custom training on your business",
+      "Priority support & custom training",
     ],
     highlighted: true,
     badge: "Most popular",
@@ -122,7 +137,7 @@ const plans = [
     period: "",
     description: "For larger teams with custom needs",
     features: [
-      "Unlimited employees",
+      "Unlimited employees + Atlas",
       "Higher capacity & custom quotas",
       "Dedicated support",
       "Enterprise integrations",
@@ -275,6 +290,14 @@ function EmployeeCard({ employee, index }: { employee: Employee; index: number }
           <div>
             <h3 className="font-semibold text-foreground">{employee.name}</h3>
             <p className="text-sm text-muted-foreground">{employee.role}</p>
+            {employee.tagline && (
+              <span
+                className="inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: `${employee.accent}1a`, color: employee.accent }}
+              >
+                {employee.tagline}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -310,13 +333,14 @@ function Team() {
           className="text-center mb-16"
         >
           <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-4">
-            Meet the team
+            Your team comes with a Chief of Staff.
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Three AI employees ready to work for your business today.
+            Three AI employees do the work. Atlas runs them — briefing you each morning
+            and routing every task. No competitor ships a team that manages itself.
           </p>
         </motion.div>
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
           {employees.map((employee, index) => (
             <EmployeeCard key={employee.name} employee={employee} index={index} />
           ))}
