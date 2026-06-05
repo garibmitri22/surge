@@ -85,7 +85,7 @@ const tools: Anthropic.Tool[] = [
   },
   {
     name: 'log_activity',
-    description: 'Record a short activity-feed entry as you work (e.g. "Researched 14 med spas in Conroe").',
+    description: 'Record a short activity-feed entry as you work (e.g. "Researched 14 businesses in the target market").',
     input_schema: { type: 'object', properties: { action: { type: 'string' }, detail: { type: 'string' } }, required: ['action'] },
   },
   {
@@ -247,6 +247,13 @@ export async function POST(request: Request) {
     : 'No company profile.';
   const memBlock = (memory ?? []).map((m) => `- [${m.type}] ${m.title}: ${m.content}`).join('\n') || 'none';
 
+  // Who Aria prospects = THIS company's real ICP (from the brain), not a hardcoded
+  // vertical. Prefer the saved ICP notes + the profile's target customers; fall back
+  // to inferring from the profile if the brain has no ICP yet.
+  const icpNotes = (memory ?? []).filter((m) => m.type === 'icp').map((m) => m.content).join(' | ');
+  const targetBrief = [company?.target_customers, icpNotes].filter(Boolean).join(' — ')
+    || 'No ICP saved yet — infer the most plausible fit from the company profile above, and say so in your report.';
+
   const system = injectPricing(`${persona || `You are ${employee?.name ?? employeeId}, ${employee?.role ?? ''}. ${employee?.bio ?? ''}`}
 
 =====================================================================
@@ -261,7 +268,8 @@ TASK: ${task.title}
 
 RULES (binding):
 1. REAL DATA ONLY. Find real businesses with web_search. Every create_lead needs a real source_url from your search results. If you only find 8 qualified leads, create 8 — never invent.
-2. THIS RUN: focus on MED SPAS in North Houston up to Conroe. Aim for ~10-15 real qualified leads. Score each 0-100 with the rubric (ICP fit /40, pain /30, ability /20, reachability /10), each part with a one-line reason.
+2. WHO TO TARGET — prospect REAL businesses that fit THIS company's ICP: ${targetBrief}
+   Match their industry, customer type, and geography. If the TASK above names a specific segment, follow that. Aim for ~10-15 real qualified leads. Score each 0-100 with the rubric (ICP fit /40, pain /30, ability /20, reachability /10), each part with a one-line reason.
 3. After scoring, draft cold emails (draft_email) for the TOP 5 by score — just pass each lead_id; the senior writer produces the final copy. Drafts are pending approval — you send NOTHING.
 4. Lead Lifeline: every lead must have a next_action + next_action_at.
 5. Log_activity as you go. When done, call report ONCE with real counts (how many researched, how many leads created, top 5 names+scores), then STOP.
