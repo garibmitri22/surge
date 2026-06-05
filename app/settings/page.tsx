@@ -92,7 +92,7 @@ export default function SettingsPage() {
               <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>per month</p>
             </div>
           </div>
-          <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '12px', textAlign: 'center' }}>Billing coming soon. You're on the founder's free plan.</p>
+          <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '12px', textAlign: 'center' }}>Billing coming soon. You&rsquo;re on the founder&rsquo;s free plan.</p>
         </div>
       </div>
 

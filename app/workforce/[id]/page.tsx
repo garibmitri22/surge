@@ -42,13 +42,12 @@ export default function EmployeePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('chat');
-  const [initialAsk, setInitialAsk] = useState<string | null>(null);
-
   // Command-bar deep link: /workforce/<id>?ask=<message> auto-sends in chat.
-  useEffect(() => {
-    const ask = new URLSearchParams(window.location.search).get('ask');
-    if (ask) setInitialAsk(ask);
-  }, []);
+  // Read once at mount via a lazy initializer (no setState-in-effect).
+  const [initialAsk, setInitialAsk] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get('ask');
+  });
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [empTasks, setEmpTasks] = useState<Task[]>([]);
   const [empActivity, setEmpActivity] = useState<ActivityItem[]>([]);

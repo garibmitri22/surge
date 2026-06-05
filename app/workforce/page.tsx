@@ -62,7 +62,7 @@ export default function WorkforcePage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '32px' }}>
         <div>
           <h1 style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)' }}>Workforce</h1>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>Your AI team. Working 24/7 so you don't have to.</p>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px' }}>Your AI team. Working 24/7 so you don&rsquo;t have to.</p>
         </div>
         <button onClick={() => setShowHire(true)} className="btn-primary">+ Hire Employee</button>
       </div>

@@ -17,15 +17,21 @@ export default function LeadsPage() {
   const [sFilter, setSFilter] = useState('all');
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  async function load() {
-    const [l, d] = await Promise.all([getLeads(), getDrafts()]);
-    setLeads(l); setDrafts(d); setLoaded(true);
-  }
-  useEffect(() => { load(); }, []);
+  const [overdueCount, setOverdueCount] = useState(0);
+  const [nowTs, setNowTs] = useState(0); // load-time clock; keeps Date.now() out of render
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [l, d] = await Promise.all([getLeads(), getDrafts()]);
+      if (cancelled) return;
+      const now = Date.now();
+      setLeads(l); setDrafts(d); setLoaded(true); setNowTs(now);
+      setOverdueCount(l.filter((x) => new Date(x.nextActionAt).getTime() < now && x.status !== 'disqualified' && x.status !== 'meeting').length);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filtered = leads.filter((l) => (vFilter === 'all' || l.vertical === vFilter) && (sFilter === 'all' || l.status === sFilter));
-  const now = Date.now();
-  const overdueCount = leads.filter((l) => new Date(l.nextActionAt).getTime() < now && l.status !== 'disqualified' && l.status !== 'meeting').length;
 
   async function decide(id: string, status: 'approved' | 'rejected') {
     setDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, approvalStatus: status } : d)));
@@ -71,7 +77,7 @@ export default function LeadsPage() {
           {filtered.length === 0 ? (
             <p style={{ padding: '32px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '13px' }}>No leads match these filters.</p>
           ) : filtered.map((l) => {
-            const overdue = new Date(l.nextActionAt).getTime() < now && l.status !== 'disqualified' && l.status !== 'meeting';
+            const overdue = nowTs > 0 && new Date(l.nextActionAt).getTime() < nowTs && l.status !== 'disqualified' && l.status !== 'meeting';
             const open = expanded === l.id;
             const leadDrafts = drafts.filter((d) => d.leadId === l.id);
             return (

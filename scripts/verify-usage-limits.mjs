@@ -1,7 +1,7 @@
 // Surge — Usage limits + cost telemetry verification. Run: node scripts/verify-usage-limits.mjs
 // Proves: (1) usage tables exist + RLS enforced, (2) the quota guard refuses run #61
 // with an in-character message, (3) a run records cost from real token usage,
-// (4) quotas come from config not constants, (5) pricing renders $999 team / $399 single.
+// (4) quotas come from config not constants, (5) pricing comes from lib/pricing.mjs ($999 team / $399 single).
 // DB checks hit Supabase via the anon key (like verify-leads.mjs); logic checks import
 // the REAL lib/usage-config.mjs; wiring checks grep the production source so the live
 // authenticated path (which needs a session) is proven connected, not just simulated.
@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import {
   PLAN_QUOTAS, quotaForPlan, estCostUsd, capacityMessage, currentPeriod, MODEL_RATES,
 } from '../lib/usage-config.mjs';
+import { PRICE_SINGLE, PRICE_TEAM } from '../lib/pricing.mjs';
 
 const env = Object.fromEntries(
   readFileSync('.env.local', 'utf8').split('\n').filter((l) => l.includes('='))
@@ -77,9 +78,11 @@ check('route reads the limit from config (quota.taskRunsPerMonth), not a literal
 check('migration enforces the cap atomically (consume_task_run + guarded update)',
   /create or replace function consume_task_run/.test(migration) && /where uc\.runs_used < p_limit/.test(migration));
 
-console.log('\n--- 5. Pricing: $999 team / $399 single ---');
-check('landing shows "Hire the Team" at $999', /Hire the Team/.test(landing) && /\$999/.test(landing));
-check('landing shows "Single Employee" at $399', /Single Employee/.test(landing) && /\$399/.test(landing));
+console.log('\n--- 5. Pricing: centralized in lib/pricing.mjs ($999 team / $399 single) ---');
+// Prices are no longer literals in the page (that drift caused the $299 bug); they
+// come from lib/pricing.mjs. Verify the source of truth + that landing uses it.
+check('pricing module is source of truth: team 999 / single 399', PRICE_TEAM === 999 && PRICE_SINGLE === 399, `team ${PRICE_TEAM}, single ${PRICE_SINGLE}`);
+check('landing renders both plans and imports centralized pricing', /Hire the Team/.test(landing) && /Single Employee/.test(landing) && /pricing\.mjs/.test(landing));
 check('team plan flagged Most popular (default)', /Most popular/.test(landing));
 
 console.log(`\nperiod=${currentPeriod()}`);
