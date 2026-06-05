@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { buildSystemPrompt, toolsFor, isRequiredSetMet, PROFILE_MEMORY_TYPES } from '@/lib/chat-prompt.mjs';
 import { allowanceForPlan } from '@/lib/pricing.mjs';
+import { extractMemories } from '@/lib/memory-extract.mjs';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -67,6 +68,43 @@ const MEMORY_KINDS = [
   'icp', 'offer', 'proof', 'voice', 'goal', 'brand-kit', 'process',
 ];
 // PROFILE_MEMORY_TYPES (singleton-per-company) is shared from chat-prompt.mjs.
+
+// Persist one memory entry — used by the remember_detail tool AND the automatic
+// post-turn extractor. Profile types (icp/offer/voice/goal/brand-kit) UPSERT so the
+// brain never accumulates duplicates; everything else appends. Best-effort.
+async function persistMemory(
+  supabase: SupabaseServer,
+  companyId: string,
+  rawKind: string,
+  rawTitle: string,
+  content: string
+): Promise<void> {
+  const kind = MEMORY_KINDS.includes(rawKind) ? rawKind : 'note';
+  const type = kind === 'rapport' ? 'note' : kind;
+  const title = (rawTitle || '').trim() || (kind.charAt(0).toUpperCase() + kind.slice(1));
+  const body = String(content ?? '').trim();
+  if (!body) return;
+  const now = Date.now();
+
+  if (PROFILE_MEMORY_TYPES.includes(type)) {
+    const { data: existing } = await supabase
+      .from('memory_entries').select('id').eq('company_id', companyId).eq('type', type)
+      .order('sort_order', { ascending: false });
+    const rows = existing ?? [];
+    if (rows.length > 0) {
+      await supabase.from('memory_entries')
+        .update({ title, content: body, tags: [kind], updated_at: todayStr(), sort_order: now })
+        .eq('id', rows[0].id);
+      const staleIds = rows.slice(1).map((r) => r.id);
+      if (staleIds.length) await supabase.from('memory_entries').delete().in('id', staleIds);
+      return;
+    }
+  }
+  await supabase.from('memory_entries').insert({
+    id: 'm' + now + Math.floor(Math.random() * 1000),
+    company_id: companyId, type, title, content: body, tags: [kind], updated_at: todayStr(), sort_order: now,
+  });
+}
 
 async function executeTool(
   name: string,
@@ -151,49 +189,11 @@ async function executeTool(
   }
   if (name === 'remember_detail') {
     const kind = MEMORY_KINDS.includes(String(input.kind)) ? String(input.kind) : 'rapport';
-    const type = kind === 'rapport' ? 'note' : kind;
-    const defaultTitle = kind === 'rapport' ? 'Personal note' : kind.charAt(0).toUpperCase() + kind.slice(1);
-    const title = (input.title as string) || defaultTitle;
-    const content = String(input.content ?? '');
-
-    // Profile types are SINGLETON per company — the brain holds one ICP, one offer,
-    // one voice, one goal, one brand kit. Intake re-confirms these as it goes (a
-    // draft "Offer — TBD" then the final offer), so UPSERT instead of insert:
-    // update the latest row of this type and collapse any older duplicates. Other
-    // kinds (proof, notes, decisions, ideas) stay append-only.
-    if (PROFILE_MEMORY_TYPES.includes(type)) {
-      const { data: existing } = await supabase
-        .from('memory_entries')
-        .select('id')
-        .eq('company_id', companyId)
-        .eq('type', type)
-        .order('sort_order', { ascending: false });
-      const rows = existing ?? [];
-      if (rows.length > 0) {
-        const keepId = rows[0].id;
-        const { error: upErr } = await supabase
-          .from('memory_entries')
-          .update({ title, content, tags: [kind], updated_at: todayStr(), sort_order: now })
-          .eq('id', keepId);
-        if (upErr) return `ERROR updating memory: ${upErr.message}`;
-        // Collapse any older duplicates of the same profile type.
-        const staleIds = rows.slice(1).map((r) => r.id);
-        if (staleIds.length) await supabase.from('memory_entries').delete().in('id', staleIds);
-        return `Updated ${kind} in memory.`;
-      }
+    try {
+      await persistMemory(supabase, companyId, kind, String(input.title ?? ''), String(input.content ?? ''));
+    } catch (e) {
+      return `ERROR saving memory: ${e instanceof Error ? e.message : 'unknown'}`;
     }
-
-    const { error } = await supabase.from('memory_entries').insert({
-      id: 'm' + now,
-      company_id: companyId,
-      type,
-      title,
-      content,
-      tags: [kind],
-      updated_at: todayStr(),
-      sort_order: now,
-    });
-    if (error) return `ERROR saving memory: ${error.message}`;
     return `Saved to memory (${kind}). I'll remember that.`;
   }
   return `Unknown tool: ${name}`;
@@ -415,7 +415,24 @@ export async function POST(request: Request) {
             content: clean,
           });
         }
+        // Close the stream to the client FIRST (their reply already streamed), then
+        // capture the durable memories from this turn server-side — best-effort, so a
+        // failure never affects the chat. Skipped during intake (its own save flow).
         controller.close();
+        if (!intakeMode && clean) {
+          try {
+            const existingTitles: string[] = ((memory ?? []) as Array<{ title: string }>).map((m) => m.title).slice(0, 40);
+            const found = await extractMemories({
+              apiKey: process.env.ANTHROPIC_API_KEY,
+              employeeName: employee.name,
+              companyName: (company as { company_name?: string } | null)?.company_name,
+              userText: message,
+              assistantText: clean,
+              existingTitles,
+            });
+            for (const m of found) await persistMemory(supabase, companyId, m.kind, m.title, m.content);
+          } catch { /* memory extraction is best-effort */ }
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Chat failed';
         controller.enqueue(encoder.encode(`\n\n[Error: ${msg}]`));
