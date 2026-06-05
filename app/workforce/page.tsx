@@ -1,28 +1,11 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { getEmployees, pipelineEmployees } from '@/lib/data';
+import { getEmployees, getEmployeeStats, emptyEmployeeStat, pipelineEmployees, type EmployeeStat } from '@/lib/data';
 import type { Employee } from '@/lib/mockData';
 import { useEffect, useState } from 'react';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { SINGLE_LABEL, TEAM_LABEL } from '@/lib/pricing.mjs';
-
-function MiniRing({ score, color }: { score: number; color: string }) {
-  const r = 18;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (score / 100) * circ;
-  return (
-    <svg width="44" height="44" viewBox="0 0 44 44">
-      <circle cx="22" cy="22" r={r} fill="none" stroke="#e5e7eb" strokeWidth="4" />
-      <circle cx="22" cy="22" r={r} fill="none" stroke={color} strokeWidth="4"
-        strokeDasharray={circ} strokeDashoffset={offset}
-        strokeLinecap="round" transform="rotate(-90 22 22)"
-        style={{ transition: 'stroke-dashoffset 1s ease' }}
-      />
-      <text x="22" y="26" textAnchor="middle" fill={color} fontSize="10" fontWeight="800" fontFamily="var(--font-geist-mono)">{score}</text>
-    </svg>
-  );
-}
 
 const roles = [
   { id: 'aria', name: 'Aria', role: 'Sales Representative', color: '#a78bfa', desc: 'Prospects, outreach, follow-ups, meetings booked. Your full-time SDR.' },
@@ -33,13 +16,14 @@ const roles = [
 export default function WorkforcePage() {
   const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [stats, setStats] = useState<Record<string, EmployeeStat>>({});
   const [hoverId, setHoverId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const e = await getEmployees();
-      if (!cancelled) setEmployees(e);
+      const [e, s] = await Promise.all([getEmployees(), getEmployeeStats()]);
+      if (!cancelled) { setEmployees(e); setStats(s); }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -74,7 +58,9 @@ export default function WorkforcePage() {
           <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{employees.length} hired</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-          {employees.map(e => (
+          {employees.map(e => {
+            const st = stats[e.id] ?? emptyEmployeeStat();
+            return (
             <div key={e.id} onClick={() => router.push(`/workforce/${e.id}`)}
               onMouseEnter={() => setHoverId(e.id)} onMouseLeave={() => setHoverId(null)}
               className="card-hover"
@@ -89,28 +75,27 @@ export default function WorkforcePage() {
                     <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{e.role}</p>
                   </div>
                 </div>
-                <MiniRing score={e.performanceScore} color={e.color} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
                 <div className={`status-${e.status}`} style={{ width: '7px', height: '7px', borderRadius: '50%' }} />
                 <span style={{ fontSize: '11px', color: e.status === 'active' ? 'var(--green)' : 'var(--amber)', textTransform: 'capitalize', fontWeight: '600' }}>{e.status}</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginLeft: '4px' }}>· {e.tasksToday} tasks today</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginLeft: '4px' }}>· {st.activeTasks} active · {st.completedTasks} done</span>
               </div>
               <div style={{ background: 'var(--bg)', borderRadius: '8px', padding: '10px 12px', marginBottom: '16px', border: '1px solid var(--border)' }}>
                 <p style={{ fontSize: '10px', color: 'var(--text-dim)', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Now working on</p>
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{e.currentTask}</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{st.currentTask}</p>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                {e.kpis.slice(0, 3).map(kpi => (
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(st.kpis.length, 1)}, 1fr)`, gap: '8px' }}>
+                {st.kpis.map(kpi => (
                   <div key={kpi.label}>
                     <p style={{ fontSize: '10px', color: 'var(--text-dim)', marginBottom: '2px' }}>{kpi.label}</p>
-                    <p style={{ fontSize: '14px', fontWeight: '700', color: e.color, fontFamily: 'var(--font-geist-mono)' }}>{kpi.value}</p>
-                    <p style={{ fontSize: '10px', color: kpi.change >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: '600' }}>{kpi.change >= 0 ? '+' : ''}{kpi.change}%</p>
+                    <p style={{ fontSize: '14px', fontWeight: '700', color: kpi.value === 0 ? 'var(--text-dim)' : e.color, fontFamily: 'var(--font-geist-mono)' }}>{kpi.value}</p>
                   </div>
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

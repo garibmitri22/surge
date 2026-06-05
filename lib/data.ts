@@ -291,6 +291,69 @@ export async function getWorkforceStats(): Promise<WorkforceStats> {
 }
 
 // ----------------------------------------------------------------------------
+// Per-employee REAL stats for the workforce surfaces. No fabricated scores/KPIs —
+// everything is computed from this company's actual tasks/leads/drafts. Employees
+// with no work yet read honest zeros + "Idle".
+// ----------------------------------------------------------------------------
+
+export interface EmployeeStat {
+  activeTasks: number;
+  completedTasks: number;
+  currentTask: string;
+  kpis: { label: string; value: number }[];
+}
+
+export function emptyEmployeeStat(): EmployeeStat {
+  return { activeTasks: 0, completedTasks: 0, currentTask: 'Idle — no active task', kpis: [] };
+}
+
+export async function getEmployeeStats(): Promise<Record<string, EmployeeStat>> {
+  const companyId = await getMyCompanyId();
+  if (!companyId) return {};
+  const [tasks, leads, drafts] = await Promise.all([getTasks(), getLeads(), getDrafts()]);
+
+  const out: Record<string, EmployeeStat> = {};
+  const ensure = (id: string) => (out[id] ??= emptyEmployeeStat());
+
+  // Tasks → active/completed counts + a real "current task" per employee.
+  const inProgress: Record<string, string> = {};
+  const queued: Record<string, string> = {};
+  for (const t of tasks) {
+    const s = ensure(t.assigneeId);
+    if (t.status === 'completed') s.completedTasks++;
+    else {
+      s.activeTasks++;
+      if (t.status === 'in_progress' && !inProgress[t.assigneeId]) inProgress[t.assigneeId] = t.title;
+      else if (t.status === 'queued' && !queued[t.assigneeId]) queued[t.assigneeId] = t.title;
+    }
+  }
+  for (const id of Object.keys(out)) {
+    out[id].currentTask = inProgress[id] ? inProgress[id]
+      : queued[id] ? `Queued: ${queued[id]}`
+      : 'Idle — no active task';
+  }
+
+  // Aria's real sales KPIs (the only role with a live data source today).
+  const aria = ensure('aria');
+  const qualified = leads.filter((l) => ['qualified', 'drafted', 'meeting', 'contacted'].includes(l.status)).length;
+  const sent = drafts.filter((d) => d.approvalStatus === 'sent').length;
+  aria.kpis = [
+    { label: 'Leads', value: leads.length },
+    { label: 'Qualified', value: qualified },
+    { label: 'Emails Sent', value: sent },
+  ];
+  // Everyone else: honest task-based KPIs (no invented marketing/ops metrics yet).
+  for (const id of Object.keys(out)) {
+    if (id === 'aria') continue;
+    out[id].kpis = [
+      { label: 'Active', value: out[id].activeTasks },
+      { label: 'Completed', value: out[id].completedTasks },
+    ];
+  }
+  return out;
+}
+
+// ----------------------------------------------------------------------------
 // Workforce Performance Score — "The One Number", from REAL data only.
 // Returns score=null until there's genuine work to measure (honest empty state).
 // ----------------------------------------------------------------------------

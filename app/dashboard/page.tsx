@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getEmployees, getActivity, getTasks, getWorkforceStats, getWorkforceScore, getCompanyProfile, type WorkforceStats, type WorkforceScore } from '@/lib/data';
+import { getEmployees, getActivity, getTasks, getWorkforceStats, getWorkforceScore, getEmployeeStats, emptyEmployeeStat, getCompanyProfile, type WorkforceStats, type WorkforceScore, type EmployeeStat } from '@/lib/data';
 import type { Employee, ActivityItem, Task } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { AtlasBrief } from '@/components/AtlasBrief';
@@ -42,12 +42,13 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<WorkforceStats | null>(null);
   const [score, setScore] = useState<WorkforceScore | null>(null);
+  const [empStats, setEmpStats] = useState<Record<string, EmployeeStat>>({});
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [emps, acts, tks, ws, sc, profile] = await Promise.all([
-        getEmployees(), getActivity(), getTasks(), getWorkforceStats(), getWorkforceScore(), getCompanyProfile(),
+      const [emps, acts, tks, ws, sc, es, profile] = await Promise.all([
+        getEmployees(), getActivity(), getTasks(), getWorkforceStats(), getWorkforceScore(), getEmployeeStats(), getCompanyProfile(),
       ]);
       if (cancelled) return;
       setEmployees(emps);
@@ -55,6 +56,7 @@ export default function Dashboard() {
       setTasks(tks);
       setStats(ws);
       setScore(sc);
+      setEmpStats(es);
       if (profile?.companyName) setCompanyName(profile.companyName);
     })();
     return () => { cancelled = true; };
@@ -256,7 +258,7 @@ export default function Dashboard() {
                   <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{e.name}</span>
                   <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>{e.role}</span>
                 </div>
-                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.currentTask}</p>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(empStats[e.id] ?? emptyEmployeeStat()).currentTask}</p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
                 <div className={`status-${e.status}`} style={{ width: '7px', height: '7px', borderRadius: '50%' }} />

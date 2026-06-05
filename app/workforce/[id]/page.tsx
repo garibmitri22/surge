@@ -1,30 +1,13 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { getEmployee, getTasks, getActivity } from '@/lib/data';
+import { getEmployee, getTasks, getActivity, getEmployeeStats, emptyEmployeeStat, type EmployeeStat } from '@/lib/data';
 import type { Employee, Task, ActivityItem } from '@/lib/mockData';
 import { useState, useEffect } from 'react';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { ChatPanel } from '@/components/ChatPanel';
 
 type Tab = 'chat' | 'tasks' | 'activity' | 'responsibilities';
-
-function ScoreRing({ score, color }: { score: number; color: string }) {
-  const [drawn, setDrawn] = useState(false);
-  const r = 40;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (drawn ? score / 100 : 0) * circ;
-  useEffect(() => { setTimeout(() => setDrawn(true), 100); }, []);
-  return (
-    <svg width="96" height="96" viewBox="0 0 96 96">
-      <circle cx="48" cy="48" r={r} fill="none" stroke="#e5e7eb" strokeWidth="6" />
-      <circle cx="48" cy="48" r={r} fill="none" stroke={color} strokeWidth="6"
-        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-        transform="rotate(-90 48 48)" style={{ transition: 'stroke-dashoffset 1.2s ease' }} />
-      <text x="48" y="53" textAnchor="middle" fill={color} fontSize="22" fontWeight="800" fontFamily="var(--font-geist-mono)">{score}</text>
-    </svg>
-  );
-}
 
 const priorityColors: Record<string, string> = {
   high: '#ef4444',
@@ -51,16 +34,18 @@ export default function EmployeePage() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [empTasks, setEmpTasks] = useState<Task[]>([]);
   const [empActivity, setEmpActivity] = useState<ActivityItem[]>([]);
+  const [stat, setStat] = useState<EmployeeStat>(emptyEmployeeStat());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [emp, tks, acts] = await Promise.all([getEmployee(id), getTasks(), getActivity()]);
+      const [emp, tks, acts, es] = await Promise.all([getEmployee(id), getTasks(), getActivity(), getEmployeeStats()]);
       if (cancelled) return;
       setEmployee(emp);
       setEmpTasks(tks.filter(t => t.assigneeId === id));
       setEmpActivity(acts.filter(a => a.employeeId === id));
+      setStat(es[id] ?? emptyEmployeeStat());
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -85,12 +70,11 @@ export default function EmployeePage() {
       <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', padding: '28px 32px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '24px' }}>
 
-          {/* Avatar + Score */}
+          {/* Avatar */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '80px', height: '80px', borderRadius: '20px', overflow: 'hidden', border: `2px solid ${employee.color}30`, boxShadow: `0 4px 16px ${employee.color}20` }}>
               <EmployeeAvatar id={employee.id} size={80} />
             </div>
-            <ScoreRing score={employee.performanceScore} color={employee.color} />
           </div>
 
           {/* Info */}
@@ -105,21 +89,18 @@ export default function EmployeePage() {
             <p style={{ fontSize: '14px', color: employee.color, fontWeight: '600', marginBottom: '10px' }}>{employee.role}</p>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: '600px', marginBottom: '16px' }}>{employee.bio}</p>
             <div style={{ display: 'flex', gap: '24px' }}>
-              <div><p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Uptime</p><p style={{ fontSize: '14px', fontWeight: '700', color: 'var(--green)', fontFamily: 'var(--font-geist-mono)' }}>{employee.uptime}</p></div>
-              <div><p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Tasks Today</p><p style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'var(--font-geist-mono)' }}>{employee.tasksToday}</p></div>
-              <div><p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Current Task</p><p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{employee.currentTask}</p></div>
+              <div><p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Active Tasks</p><p style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'var(--font-geist-mono)' }}>{stat.activeTasks}</p></div>
+              <div><p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Completed</p><p style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'var(--font-geist-mono)' }}>{stat.completedTasks}</p></div>
+              <div><p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Current Task</p><p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{stat.currentTask}</p></div>
             </div>
           </div>
 
-          {/* KPIs */}
+          {/* KPIs — real, from this company's data */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '160px' }}>
-            {employee.kpis.map(kpi => (
+            {stat.kpis.map(kpi => (
               <div key={kpi.label} style={{ background: 'var(--surface)', borderRadius: '10px', padding: '10px 14px', border: '1px solid var(--border)' }}>
                 <p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '4px' }}>{kpi.label}</p>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                  <span style={{ fontSize: '18px', fontWeight: '800', color: employee.color, fontFamily: 'var(--font-geist-mono)' }}>{kpi.value}</span>
-                  <span style={{ fontSize: '11px', color: kpi.change >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: '600' }}>{kpi.change >= 0 ? '+' : ''}{kpi.change}%</span>
-                </div>
+                <span style={{ fontSize: '18px', fontWeight: '800', color: kpi.value === 0 ? 'var(--text-dim)' : employee.color, fontFamily: 'var(--font-geist-mono)' }}>{kpi.value}</span>
               </div>
             ))}
           </div>
