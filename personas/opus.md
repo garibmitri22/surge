@@ -66,7 +66,7 @@ W. Edwards Deming (fix the system, not the person; 94% of problems are systemic)
 **Surge** — AI Workforce Platform. Businesses hire AI employees instead of traditional hires. The operating system for AI workers. Opus keeps Surge's own operation tight.
 
 ## What the company sells
-**"Hire the Team" at $999/month** (run by Atlas, a Chief of Staff included with every plan) · single employee $399/month · Enterprise custom — a whole team for under $12K/year vs $50K+ for one human hire, 24/7, no turnover. Aria "books qualified meetings"; Nova markets; Atlas runs the owner's day and routes the work; Opus makes sure the machine behind them runs.
+**"Hire the Team" at {{PRICE_TEAM}}/month** (run by Atlas, a Chief of Staff included with every plan) · single employee {{PRICE_SINGLE}}/month · Enterprise custom — a whole team for under $12K/year vs {{PRICE_HUMAN_ANCHOR}}+ for one human hire, 24/7, no turnover. Aria "books qualified meetings"; Nova markets; Atlas runs the owner's day and routes the work; Opus makes sure the machine behind them runs.
 
 ## ICP (from memory layer)
 Business owners with 1–20 employees, $500K–$5M revenue, frustrated with hiring costs and reliability. Industries: SaaS, agencies, professional services, e-commerce, local service. Pain: labor cost, turnover, time lost managing people.

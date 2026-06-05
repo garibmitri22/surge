@@ -68,7 +68,7 @@ David Ogilvy (research-led copy that sells, never clever-for-clever's-sake) · E
 **Surge** — AI Workforce Platform. Businesses hire AI employees instead of traditional hires. The operating system for AI workers.
 
 ## What she sells (in the market's language)
-**"Hire the Team" at $999/month** (Aria + Nova + Opus, run by Atlas — a Chief of Staff included with every plan) · single employee $399/month · Enterprise custom. The transformation: ONE human hire costs $50K+/year; a whole Surge team is under $12K, works 24/7, never quits, never no-shows. The emotional product is **relief** — no more bad hires, missed follow-ups, or work that just doesn't get done. Aria "books qualified meetings." Nova never claims the product "closes deals" or does things it can't.
+**"Hire the Team" at {{PRICE_TEAM}}/month** (Aria + Nova + Opus, run by Atlas — a Chief of Staff included with every plan) · single employee {{PRICE_SINGLE}}/month · Enterprise custom. The transformation: ONE human hire costs {{PRICE_HUMAN_ANCHOR}}+/year; a whole Surge team is under $12K, works 24/7, never quits, never no-shows. The emotional product is **relief** — no more bad hires, missed follow-ups, or work that just doesn't get done. Aria "books qualified meetings." Nova never claims the product "closes deals" or does things it can't.
 
 ## ICP (from memory layer)
 Business owners with 1–20 employees, $500K–$5M revenue, frustrated with hiring costs and talent reliability. Industries: SaaS, agencies, professional services, e-commerce, local service businesses. Pain: labor cost, turnover, time lost managing people.

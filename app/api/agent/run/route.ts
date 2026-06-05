@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from '@/lib/supabase-server';
 import {
   quotaForPlan, currentPeriod, estCostUsd, capacityMessage, RESEARCH_MODEL, WRITING_MODEL,
 } from '@/lib/usage-config.mjs';
+import { injectPricing, PRICE_SINGLE, PRICE_TEAM, PRICE_HUMAN_ANCHOR } from '@/lib/pricing.mjs';
 
 const MAX_ITERATIONS = 18;
 
@@ -260,7 +261,7 @@ export async function POST(request: Request) {
     : 'No company profile.';
   const memBlock = (memory ?? []).map((m) => `- [${m.type}] ${m.title}: ${m.content}`).join('\n') || 'none';
 
-  const system = `${persona || `You are ${employee?.name ?? employeeId}, ${employee?.role ?? ''}. ${employee?.bio ?? ''}`}
+  const system = injectPricing(`${persona || `You are ${employee?.name ?? employeeId}, ${employee?.role ?? ''}. ${employee?.bio ?? ''}`}
 
 =====================================================================
 LIVE COMPANY CONTEXT
@@ -278,10 +279,10 @@ RULES (binding):
 3. After scoring, draft cold emails (draft_email) for the TOP 5 by score — just pass each lead_id; the senior writer produces the final copy. Drafts are pending approval — you send NOTHING.
 4. Lead Lifeline: every lead must have a next_action + next_action_at.
 5. Log_activity as you go. When done, call report ONCE with real counts (how many researched, how many leads created, top 5 names+scores), then STOP.
-6. Be efficient — you have a limited number of steps. Don't re-research the same businesses. Work incrementally: do a few searches, create those leads, then search more — don't fire many web searches back-to-back in a single step.`;
+6. Be efficient — you have a limited number of steps. Don't re-research the same businesses. Work incrementally: do a few searches, create those leads, then search more — don't fire many web searches back-to-back in a single step.`);
 
   // Writer system prompt: same persona/company context, focused purely on writing.
-  const writingSystem = `${persona || `You are ${employee?.name ?? employeeId}.`}
+  const writingSystem = injectPricing(`${persona || `You are ${employee?.name ?? employeeId}.`}
 
 =====================================================================
 LIVE COMPANY CONTEXT
@@ -289,7 +290,7 @@ ${companyBlock}
 COMPANY MEMORY:
 ${memBlock}
 
-You are writing prospect-facing cold email copy. Apply your full Writing Discipline (under 100 words, a specific personalized first line, one small ask, no buzzwords, no "just following up"). Output ONLY through the emit_email tool. Never fabricate stats, customers, or claims you can't back.`;
+You are writing prospect-facing cold email copy. Apply your full Writing Discipline (under 100 words, a specific personalized first line, one small ask, no buzzwords, no "just following up"). Output ONLY through the emit_email tool. Never fabricate stats, customers, or claims you can't back.`);
 
   const client = new Anthropic();
   const counters = { leads: 0, drafts: 0 };
@@ -332,7 +333,7 @@ Notes: ${l.notes ?? 'none'}`;
       system: [{ type: 'text', text: writingSystem, cache_control: { type: 'ephemeral' } }],
       tools: [emit],
       tool_choice: { type: 'tool', name: 'emit_email' },
-      messages: [{ role: 'user', content: `Write ONE first-touch cold email for this lead. Pitch Surge ($399/mo AI employee — or the full team at $999/mo, run by a Chief of Staff — vs a $50K human; you book qualified meetings, never "close deals").\n\n${facts}` }],
+      messages: [{ role: 'user', content: `Write ONE first-touch cold email for this lead. Pitch Surge ($${PRICE_SINGLE}/mo AI employee, or the full team at $${PRICE_TEAM}/mo run by a Chief of Staff, vs a ${PRICE_HUMAN_ANCHOR} human; you book qualified meetings, never "close deals").\n\n${facts}` }],
     });
     await recordUsage(WRITING_MODEL, resp.usage);
     const block = resp.content.find((b) => b.type === 'tool_use') as Anthropic.ToolUseBlock | undefined;

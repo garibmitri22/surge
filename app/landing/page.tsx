@@ -5,6 +5,7 @@ import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { UserPlus, MessageSquare, Zap, Check, ChevronDown } from "lucide-react";
+import { SINGLE_LABEL, TEAM_LABEL } from "@/lib/pricing.mjs";
 
 // Contact-sales destination (placeholder — update to the real sales inbox).
 const CONTACT_SALES_MAILTO = "mailto:hello@surge.app?subject=Surge%20Enterprise%20inquiry";
@@ -104,7 +105,7 @@ const upcomingEmployees = [
 const plans = [
   {
     name: "Single Employee",
-    price: "$399",
+    price: SINGLE_LABEL,
     period: "/mo",
     description: "One working AI employee — run by your Chief of Staff",
     features: [
@@ -118,7 +119,7 @@ const plans = [
   },
   {
     name: "Hire the Team",
-    price: "$999",
+    price: TEAM_LABEL,
     period: "/mo",
     description: "Four employees — $250 each — run by a Chief of Staff",
     features: [
@@ -237,7 +238,7 @@ function Hero() {
           className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto text-pretty"
         >
           AI employees that sell, market, and operate your business — 24/7, from
-          $399 a month. No salaries. No turnover. No sick days.
+          {` ${SINGLE_LABEL} `}a month. No salaries. No turnover. No sick days.
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
