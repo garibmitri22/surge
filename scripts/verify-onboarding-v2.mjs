@@ -9,7 +9,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 import {
   buildSystemPrompt, toolsFor, chatTools, intakeTools,
-  REQUIRED_INTAKE_TYPES, isRequiredSetMet,
+  REQUIRED_INTAKE_TYPES, isRequiredSetMet, PROFILE_MEMORY_TYPES,
 } from '../lib/chat-prompt.mjs';
 
 const env = Object.fromEntries(
@@ -92,6 +92,13 @@ check('empty set does NOT complete', isRequiredSetMet([]) === false);
 check('partial set does NOT complete (missing goal)', isRequiredSetMet(['icp', 'offer', 'voice']) === false);
 check('full set completes', isRequiredSetMet(['icp', 'offer', 'voice', 'goal']) === true);
 check('extra kinds do not break the gate', isRequiredSetMet(['icp', 'offer', 'voice', 'goal', 'proof', 'brand-kit', 'note']) === true);
+
+console.log('\n--- 5b. Profile memory types are singletons (upsert classification) ---');
+// These types UPSERT (one row per company); the chat route updates instead of
+// inserting a duplicate. The behavioral "save twice -> one row" check runs in
+// scripts/e2e-onboarding-v2.mjs (needs the running server + an authed session).
+check('profile types = icp/offer/voice/goal/brand-kit', JSON.stringify([...PROFILE_MEMORY_TYPES].sort()) === JSON.stringify(['brand-kit', 'goal', 'icp', 'offer', 'voice']), PROFILE_MEMORY_TYPES.join(','));
+check('every REQUIRED intake type is a singleton profile type', REQUIRED_INTAKE_TYPES.every((t) => PROFILE_MEMORY_TYPES.includes(t)));
 
 console.log('\n--- 6. brand-assets bucket: anon is blocked (RLS) ---');
 if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {

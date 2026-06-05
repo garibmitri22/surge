@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
-import { buildSystemPrompt, toolsFor, isRequiredSetMet } from '@/lib/chat-prompt.mjs';
+import { buildSystemPrompt, toolsFor, isRequiredSetMet, PROFILE_MEMORY_TYPES } from '@/lib/chat-prompt.mjs';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -65,6 +65,7 @@ const MEMORY_KINDS = [
   'decision', 'open-loop', 'idea', 'rapport', 'note',
   'icp', 'offer', 'proof', 'voice', 'goal', 'brand-kit', 'process',
 ];
+// PROFILE_MEMORY_TYPES (singleton-per-company) is shared from chat-prompt.mjs.
 
 async function executeTool(
   name: string,
@@ -149,13 +150,44 @@ async function executeTool(
   }
   if (name === 'remember_detail') {
     const kind = MEMORY_KINDS.includes(String(input.kind)) ? String(input.kind) : 'rapport';
+    const type = kind === 'rapport' ? 'note' : kind;
     const defaultTitle = kind === 'rapport' ? 'Personal note' : kind.charAt(0).toUpperCase() + kind.slice(1);
+    const title = (input.title as string) || defaultTitle;
+    const content = String(input.content ?? '');
+
+    // Profile types are SINGLETON per company — the brain holds one ICP, one offer,
+    // one voice, one goal, one brand kit. Intake re-confirms these as it goes (a
+    // draft "Offer — TBD" then the final offer), so UPSERT instead of insert:
+    // update the latest row of this type and collapse any older duplicates. Other
+    // kinds (proof, notes, decisions, ideas) stay append-only.
+    if (PROFILE_MEMORY_TYPES.includes(type)) {
+      const { data: existing } = await supabase
+        .from('memory_entries')
+        .select('id')
+        .eq('company_id', companyId)
+        .eq('type', type)
+        .order('sort_order', { ascending: false });
+      const rows = existing ?? [];
+      if (rows.length > 0) {
+        const keepId = rows[0].id;
+        const { error: upErr } = await supabase
+          .from('memory_entries')
+          .update({ title, content, tags: [kind], updated_at: todayStr(), sort_order: now })
+          .eq('id', keepId);
+        if (upErr) return `ERROR updating memory: ${upErr.message}`;
+        // Collapse any older duplicates of the same profile type.
+        const staleIds = rows.slice(1).map((r) => r.id);
+        if (staleIds.length) await supabase.from('memory_entries').delete().in('id', staleIds);
+        return `Updated ${kind} in memory.`;
+      }
+    }
+
     const { error } = await supabase.from('memory_entries').insert({
       id: 'm' + now,
       company_id: companyId,
-      type: kind === 'rapport' ? 'note' : kind,
-      title: (input.title as string) || defaultTitle,
-      content: String(input.content ?? ''),
+      type,
+      title,
+      content,
       tags: [kind],
       updated_at: todayStr(),
       sort_order: now,

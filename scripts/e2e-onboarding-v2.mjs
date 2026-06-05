@@ -109,6 +109,14 @@ async function streamChat(message, intakeMode = true) {
   check('completed_at stamped on completion', !!afterDone?.completed_at);
   console.log('   (Atlas reply excerpt:', JSON.stringify((complete.text || '').slice(0, 140)), ')');
 
+  console.log('\n--- 5. Profile memory UPSERT — re-saving a profile type collapses to one row ---');
+  // Section 4 already seeded one 'offer' row. Ask Atlas to save a NEW offer; the
+  // route must UPDATE that row (singleton profile type), not insert a duplicate.
+  await streamChat("Save this to my memory as my OFFER now (use kind: offer), exact text: 'OFFER-UPSERT-MARKER v2 final'.");
+  const { data: offers } = await db.from('memory_entries').select('id, content').eq('company_id', companyId).eq('type', 'offer');
+  check('exactly one offer row after re-save (no duplicate)', (offers ?? []).length === 1, `${(offers ?? []).length} row(s)`);
+  check('offer row holds the latest content', !!(offers ?? [])[0]?.content?.includes('OFFER-UPSERT-MARKER'), (offers ?? [])[0]?.content?.slice(0, 70));
+
   // ---- cleanup: remove the test company (cascades memory). Auth user remains. --
   await db.from('memory_entries').delete().eq('company_id', companyId);
   await db.from('companies').delete().eq('id', companyId);
