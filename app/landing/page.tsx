@@ -29,11 +29,11 @@ const employees: Employee[] = [
     role: "Sales Representative",
     initials: "AR",
     accent: "#a78bfa",
-    description: "Qualifies leads, sends follow-ups, and books qualified meetings while you sleep.",
+    description: "Researches real prospects, scores every lead, and drafts the personalized outreach that books qualified meetings — you approve before anything sends.",
     stats: [
-      { label: "Leads qualified", value: "847" },
-      { label: "Meetings booked", value: "156" },
-      { label: "Response rate", value: "34%" },
+      { label: "Prospecting", value: "Daily" },
+      { label: "Every lead scored", value: "0–100" },
+      { label: "Follow-up cadence", value: "Day 3/7/14" },
     ],
   },
   {
@@ -41,11 +41,11 @@ const employees: Employee[] = [
     role: "Marketing Director",
     initials: "NV",
     accent: "#34d399",
-    description: "Creates campaigns, writes copy, and grows your audience daily.",
+    description: "Writes posts, scripts, and campaigns native to every channel — in your brand voice, measured against a real metric.",
     stats: [
-      { label: "Campaigns live", value: "23" },
-      { label: "Content pieces", value: "412" },
-      { label: "Engagement", value: "+127%" },
+      { label: "Content & scripts", value: "Daily" },
+      { label: "Every channel", value: "Native" },
+      { label: "Every piece", value: "Measured" },
     ],
   },
   {
@@ -53,11 +53,11 @@ const employees: Employee[] = [
     role: "Operations Assistant",
     initials: "OP",
     accent: "#60a5fa",
-    description: "Manages workflows, organizes data, and keeps everything running.",
+    description: "Documents your processes, preps complete handoff briefs, and tracks every task to closure — nothing falls through the cracks.",
     stats: [
-      { label: "Tasks completed", value: "2,341" },
-      { label: "Hours saved", value: "168/mo" },
-      { label: "Accuracy", value: "99.7%" },
+      { label: "Tasks dropped", value: "0" },
+      { label: "Every process", value: "Documented" },
+      { label: "Every handoff", value: "Complete" },
     ],
   },
   {
@@ -79,7 +79,7 @@ const steps = [
   {
     icon: UserPlus,
     title: "Hire",
-    description: "Pick your AI employee from our roster. Each one specializes in a different business function.",
+    description: "Pick one employee — or hire the whole team. Each one specializes in a different business function.",
   },
   {
     icon: MessageSquare,
@@ -151,12 +151,12 @@ const faqs = [
   {
     question: "Is this just ChatGPT?",
     answer:
-      "No. ChatGPT is a general assistant. Our AI employees are specialized agents trained on specific business functions — sales, marketing, operations — with persistent memory, workflow automation, and direct integrations into your tools. They don't wait for prompts. They work.",
+      "No. ChatGPT is a general assistant. Our AI employees are specialized agents trained on specific business functions — sales, marketing, operations — with persistent memory of YOUR business and a Chief of Staff who briefs you and routes their work. You don't prompt them. You manage them.",
   },
   {
     question: "What do they actually do?",
     answer:
-      "Real work. Aria qualifies leads, sends follow-ups, and books qualified meetings. Nova writes blog posts, manages social media, creates ad copy, and analyzes campaigns. Opus handles data entry, schedules, email management, and operational workflows. They report daily.",
+      "Real work. Aria researches and scores real prospects, drafts personalized outreach, and works a follow-up cadence — you approve before anything sends. Nova writes posts, scripts, ad copy, and campaigns for every channel. Opus documents your processes, preps briefs, and tracks every task to closure. Atlas briefs you each morning and runs the team. They report daily — real numbers only.",
   },
   {
     question: "Is my data safe?",

@@ -69,7 +69,7 @@ Joe Girard (relationships at scale) · David Ogilvy (writing that sells) · Zig 
 **Surge** — AI Workforce Platform. Businesses hire AI employees instead of traditional hires. The operating system for AI workers.
 
 ## What she sells
-AI employees at **$299/month per employee** (Basic: 1 · Growth: 3 · Enterprise: unlimited + custom training). The transformation: a real employee costs $50K+/year; an AI employee is 93% cheaper, works 24/7, never quits, never calls in sick. She sells the *relief* — no more bad hires, missed follow-ups, no-shows.
+**"Hire the Team" at $999/month** — Aria (sales) + Nova (marketing) + Opus (operations), run by Atlas, a Chief of Staff included with every plan. Single employee: $399/month. Enterprise: unlimited + custom training. The transformation: ONE human hire costs $50K+/year; a whole Surge team is under $12K — four employees at ~$250 each, working 24/7, never quitting, never calling in sick. She sells the *relief* — no more bad hires, missed follow-ups, no-shows.
 
 ## ICP (from memory layer)
 Business owners with 1–20 employees, $500K–$5M revenue, frustrated with hiring costs and talent reliability. Industries: SaaS, agencies, professional services, e-commerce. Pain: labor costs, turnover, time spent managing people.
