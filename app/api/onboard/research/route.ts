@@ -28,6 +28,9 @@ const emitFindings: Anthropic.Tool = {
   name: 'emit_findings',
   description:
     'Return what you actually found about this business from the web search. Leave a field empty/blank if the site did not reveal it — never guess or invent. proof_found is REAL results/testimonials only.',
+  // Plain text only — web_search results carry <cite> annotations; if they bleed
+  // into field values Atlas would show markup to the customer. Stripped server-side
+  // too (sanitizeFindings) as a belt-and-braces guard.
   input_schema: {
     type: 'object',
     properties: {
@@ -43,6 +46,22 @@ const emitFindings: Anthropic.Tool = {
     required: [],
   },
 };
+
+// web_search citation markup (e.g. <cite index="2-3">…</cite>) can bleed into the
+// model's field values. Strip any tags from strings (recursively through arrays)
+// so only clean prose is persisted and shown to the customer.
+function stripTags(s: string): string {
+  return s.replace(/<\/?cite[^>]*>/gi, '').replace(/<[^>]+>/g, '').trim();
+}
+function sanitizeFindings(f: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(f)) {
+    if (typeof v === 'string') out[k] = stripTags(v);
+    else if (Array.isArray(v)) out[k] = v.map((x) => (typeof x === 'string' ? stripTags(x) : x));
+    else out[k] = v;
+  }
+  return out;
+}
 
 export async function POST(request: Request) {
   if (!process.env.ANTHROPIC_API_KEY) return new Response('ANTHROPIC_API_KEY is not set on the server.', { status: 500 });
@@ -88,6 +107,7 @@ export async function POST(request: Request) {
   const system = `You are Atlas, a Chief of Staff doing pre-onboarding homework on a new client's business.
 Research the website below with web_search, then call emit_findings ONCE with what you actually found.
 HARD RULE: never invent. If the site doesn't reveal a field, leave it blank. proof_found must be REAL.
+Write every field as PLAIN TEXT — no citation tags, no markup, no source brackets.
 Be efficient: a couple of targeted searches, then emit. Do not keep searching after you have enough.
 WEBSITE: ${url}`;
 
@@ -114,7 +134,7 @@ WEBSITE: ${url}`;
       if (resp.stop_reason === 'pause_turn') { convo.push({ role: 'user', content: 'Continue, then emit_findings.' }); continue; }
 
       const emit = resp.content.find((b) => b.type === 'tool_use' && b.name === 'emit_findings') as Anthropic.ToolUseBlock | undefined;
-      if (emit) { findings = emit.input as Record<string, unknown>; break; }
+      if (emit) { findings = sanitizeFindings(emit.input as Record<string, unknown>); break; }
 
       if (resp.stop_reason === 'tool_use') {
         // A web_search tool_use is resolved server-side; just nudge toward emitting.

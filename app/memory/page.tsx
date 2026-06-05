@@ -20,6 +20,13 @@ const typeLabels: Record<MemoryType, string> = {
   note: 'Note',
 };
 
+// Intake + Atlas write types beyond the original five (icp, offer, voice, goal,
+// brand, rapport, decision, open-loop, idea, ...). Render any unknown type
+// gracefully instead of crashing.
+const colorFor = (t: string): string => typeColors[t as MemoryType] ?? '#9ca3af';
+const labelFor = (t: string): string =>
+  typeLabels[t as MemoryType] ?? (t.charAt(0).toUpperCase() + t.slice(1).replace(/[-_]/g, ' '));
+
 export default function MemoryPage() {
   const [entries, setEntries] = useState<MemoryEntry[]>([]);
   const [filterType, setFilterType] = useState<MemoryType | 'all'>('all');
@@ -95,21 +102,21 @@ export default function MemoryPage() {
             <div
               key={entry.id}
               onClick={() => setExpandedId(expanded ? null : entry.id)}
-              style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: 'var(--shadow)', padding: '18px 20px', cursor: 'pointer', transition: 'border-color 0.15s', borderColor: expanded ? typeColors[entry.type] + '40' : 'var(--border)' }}
+              style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: 'var(--shadow)', padding: '18px 20px', cursor: 'pointer', transition: 'border-color 0.15s', borderColor: expanded ? colorFor(entry.type) + '40' : 'var(--border)' }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: typeColors[entry.type] + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: '11px', fontWeight: '700', color: typeColors[entry.type] }}>{typeLabels[entry.type].slice(0, 2).toUpperCase()}</span>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: colorFor(entry.type) + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: colorFor(entry.type) }}>{labelFor(entry.type).slice(0, 2).toUpperCase()}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
                     <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>{entry.title}</p>
-                    <span style={{ fontSize: '10px', color: typeColors[entry.type], background: typeColors[entry.type] + '15', padding: '2px 8px', borderRadius: '999px', fontWeight: '600' }}>{typeLabels[entry.type]}</span>
+                    <span style={{ fontSize: '10px', color: colorFor(entry.type), background: colorFor(entry.type) + '15', padding: '2px 8px', borderRadius: '999px', fontWeight: '600' }}>{labelFor(entry.type)}</span>
                   </div>
                   {!expanded && <p style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.content}</p>}
                   {expanded && <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: '6px' }}>{entry.content}</p>}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-                    {entry.tags.map(tag => (
+                    {(entry.tags ?? []).map(tag => (
                       <span key={tag} style={{ fontSize: '10px', color: 'var(--text-dim)', background: 'var(--surface)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: '999px' }}>#{tag}</span>
                     ))}
                     <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-dim)' }}>Updated {entry.updatedAt}</span>

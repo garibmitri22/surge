@@ -76,7 +76,7 @@ export default function Sidebar() {
             <span style={{ fontSize: '16px', color: 'var(--accent)' }}>+</span>
             <div>
               <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--accent)' }}>Hire an Employee</p>
-              <p style={{ fontSize: '10px', color: 'var(--text-dim)' }}>$299/mo per hire</p>
+              <p style={{ fontSize: '10px', color: 'var(--text-dim)' }}>$399/mo per hire</p>
             </div>
           </div>
         </Link>

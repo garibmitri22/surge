@@ -146,7 +146,7 @@ export default function WorkforcePage() {
               <>
                 <div style={{ padding: '24px 28px', borderBottom: '1px solid var(--border)' }}>
                   <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-primary)' }}>Hire an AI Employee</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>$299/month per hire. Cancel any time. Up in 60 seconds.</p>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>$399/month per hire — or the whole team for $999/mo. Cancel any time. Up in 60 seconds.</p>
                 </div>
                 <div style={{ padding: '24px 28px' }}>
                   <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Select a role</p>
@@ -167,7 +167,7 @@ export default function WorkforcePage() {
                   </div>
                   <div style={{ background: 'var(--bg)', borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border)' }}>
                     <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Monthly total</span>
-                    <span style={{ fontSize: '20px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)' }}>$299<span style={{ fontSize: '13px', fontWeight: '400', color: 'var(--text-dim)' }}>/mo</span></span>
+                    <span style={{ fontSize: '20px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)' }}>$399<span style={{ fontSize: '13px', fontWeight: '400', color: 'var(--text-dim)' }}>/mo</span></span>
                   </div>
                 </div>
                 <div style={{ padding: '16px 28px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>

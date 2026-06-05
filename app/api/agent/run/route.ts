@@ -332,7 +332,7 @@ Notes: ${l.notes ?? 'none'}`;
       system: [{ type: 'text', text: writingSystem, cache_control: { type: 'ephemeral' } }],
       tools: [emit],
       tool_choice: { type: 'tool', name: 'emit_email' },
-      messages: [{ role: 'user', content: `Write ONE first-touch cold email for this lead. Pitch Surge ($299/mo AI employee vs a $50K human; you book qualified meetings, never "close deals").\n\n${facts}` }],
+      messages: [{ role: 'user', content: `Write ONE first-touch cold email for this lead. Pitch Surge ($399/mo AI employee — or the full team at $999/mo, run by a Chief of Staff — vs a $50K human; you book qualified meetings, never "close deals").\n\n${facts}` }],
     });
     await recordUsage(WRITING_MODEL, resp.usage);
     const block = resp.content.find((b) => b.type === 'tool_use') as Anthropic.ToolUseBlock | undefined;
