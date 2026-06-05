@@ -14,6 +14,7 @@ import type {
 import { getMyCompanyId } from './company';
 import { getLeads, getDrafts } from './leads';
 import { allowanceForPlan } from './pricing.mjs';
+import { computeWorkforceScore } from './score.mjs';
 
 // Re-export the company profile helpers so callers have one data layer.
 export {
@@ -287,6 +288,38 @@ export async function getWorkforceStats(): Promise<WorkforceStats> {
     activeTasks, completedTasks, leadsFound, qualifiedLeads, pendingDrafts, meetingsBooked, activityCount,
     hasActivity: activeTasks + completedTasks + leadsFound + pendingDrafts + meetingsBooked + activityCount > 0,
   };
+}
+
+// ----------------------------------------------------------------------------
+// Workforce Performance Score — "The One Number", from REAL data only.
+// Returns score=null until there's genuine work to measure (honest empty state).
+// ----------------------------------------------------------------------------
+
+export interface WorkforceScore {
+  score: number | null;
+  hasEnoughData: boolean;
+  components: { key: string; label: string; value: number; weight: number }[];
+}
+
+export async function getWorkforceScore(): Promise<WorkforceScore> {
+  const companyId = await getMyCompanyId();
+  if (!companyId) return { score: null, hasEnoughData: false, components: [] };
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const [tasksRes, leadsRes, recentLeads, recentDrafts] = await Promise.all([
+    supabase.from('tasks').select('status').eq('company_id', companyId),
+    supabase.from('leads').select('status').eq('company_id', companyId),
+    supabase.from('leads').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('created_at', weekAgo),
+    supabase.from('lead_drafts').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('created_at', weekAgo),
+  ]);
+  const tasks = (tasksRes.data ?? []) as { status: string }[];
+  const leads = (leadsRes.data ?? []) as { status: string }[];
+  return computeWorkforceScore({
+    tasksCompleted: tasks.filter((t) => t.status === 'completed').length,
+    tasksOpen: tasks.filter((t) => t.status !== 'completed').length,
+    leadsTotal: leads.length,
+    leadsQualified: leads.filter((l) => ['qualified', 'drafted', 'meeting'].includes(l.status)).length,
+    recentWork: (recentLeads.count ?? 0) + (recentDrafts.count ?? 0),
+  });
 }
 
 // ----------------------------------------------------------------------------

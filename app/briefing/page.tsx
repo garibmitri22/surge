@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getCompanyProfile, getTasks, getActivity, getWorkforceStats, type WorkforceStats } from '@/lib/data';
+import { getCompanyProfile, getTasks, getActivity, getWorkforceStats, getWorkforceScore, type WorkforceStats, type WorkforceScore } from '@/lib/data';
 import { getLeads, getDrafts } from '@/lib/leads';
 import type { Task, ActivityItem } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
@@ -42,16 +42,18 @@ export default function BriefingPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [attention, setAttention] = useState<AttentionItem[]>([]);
+  const [score, setScore] = useState<WorkforceScore | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [p, ws, tks, acts, leads, drafts] = await Promise.all([
-        getCompanyProfile(), getWorkforceStats(), getTasks(), getActivity(), getLeads(), getDrafts(),
+      const [p, ws, sc, tks, acts, leads, drafts] = await Promise.all([
+        getCompanyProfile(), getWorkforceStats(), getWorkforceScore(), getTasks(), getActivity(), getLeads(), getDrafts(),
       ]);
       if (cancelled) return;
       if (p?.companyName) setCompanyName(p.companyName);
       setStats(ws);
+      setScore(sc);
       setTasks(tks);
       setActivity(acts);
 
@@ -100,8 +102,10 @@ export default function BriefingPage() {
       <div style={{ background: 'var(--accent)', borderRadius: '16px', padding: '20px 28px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Workforce Performance Score</p>
-          <p style={{ fontSize: '42px', fontWeight: '800', color: '#fff', fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>—</p>
-          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginTop: '4px' }}>Your score unlocks after your team&rsquo;s first week of real work.</p>
+          <p style={{ fontSize: '42px', fontWeight: '800', color: '#fff', fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{score?.score != null ? score.score : '—'}</p>
+          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginTop: '4px' }}>
+            {score?.score != null ? 'Live, from your team’s real work this period.' : 'Your score unlocks after your team’s first week of real work.'}
+          </p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', textAlign: 'right' }}>
           {bannerStats.map(s => (

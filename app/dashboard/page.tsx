@@ -2,13 +2,32 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getEmployees, getActivity, getTasks, getWorkforceStats, getCompanyProfile, type WorkforceStats } from '@/lib/data';
+import { getEmployees, getActivity, getTasks, getWorkforceStats, getWorkforceScore, getCompanyProfile, type WorkforceStats, type WorkforceScore } from '@/lib/data';
 import type { Employee, ActivityItem, Task } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { AtlasBrief } from '@/components/AtlasBrief';
 import { HoursWidget } from '@/components/HoursWidget';
 
 const empColors: Record<string, string> = { aria: '#a78bfa', nova: '#34d399', opus: '#60a5fa', atlas: '#f59e0b' };
+
+function ScoreRing({ score }: { score: number }) {
+  const [drawn, setDrawn] = useState(false);
+  const r = 54;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (drawn ? score / 100 : 0) * circ;
+  const color = score >= 80 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444';
+  useEffect(() => { const t = setTimeout(() => setDrawn(true), 150); return () => clearTimeout(t); }, []);
+  return (
+    <svg width="130" height="130" viewBox="0 0 130 130">
+      <circle cx="65" cy="65" r={r} fill="none" stroke="var(--border)" strokeWidth="8" />
+      <circle cx="65" cy="65" r={r} fill="none" stroke={color} strokeWidth="8"
+        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+        transform="rotate(-90 65 65)" style={{ transition: 'stroke-dashoffset 1.2s ease' }} />
+      <text x="65" y="60" textAnchor="middle" fill={color} fontSize="30" fontWeight="800" fontFamily="var(--font-geist-mono)">{score}</text>
+      <text x="65" y="78" textAnchor="middle" fill="var(--text-dim)" fontSize="9" letterSpacing="1">PERFORMANCE</text>
+    </svg>
+  );
+}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -22,18 +41,20 @@ export default function Dashboard() {
   const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<WorkforceStats | null>(null);
+  const [score, setScore] = useState<WorkforceScore | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [emps, acts, tks, ws, profile] = await Promise.all([
-        getEmployees(), getActivity(), getTasks(), getWorkforceStats(), getCompanyProfile(),
+      const [emps, acts, tks, ws, sc, profile] = await Promise.all([
+        getEmployees(), getActivity(), getTasks(), getWorkforceStats(), getWorkforceScore(), getCompanyProfile(),
       ]);
       if (cancelled) return;
       setEmployees(emps);
       setActivityLog(acts);
       setTasks(tks);
       setStats(ws);
+      setScore(sc);
       if (profile?.companyName) setCompanyName(profile.companyName);
     })();
     return () => { cancelled = true; };
@@ -109,21 +130,39 @@ export default function Dashboard() {
       {/* Main grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '20px', marginBottom: '20px' }}>
 
-        {/* Workforce Score — locked until the real formula + first week of data */}
+        {/* Workforce Score — real number from real data, or an honest "getting started" */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '130px', height: '130px', borderRadius: '50%', border: '8px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: '40px', fontWeight: '800', color: 'var(--text-dim)', fontFamily: 'var(--font-geist-mono)' }}>—</span>
-            </div>
+            {score?.score != null ? <ScoreRing score={score.score} /> : (
+              <div style={{ width: '130px', height: '130px', borderRadius: '50%', border: '8px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: '40px', fontWeight: '800', color: 'var(--text-dim)', fontFamily: 'var(--font-geist-mono)' }}>—</span>
+              </div>
+            )}
             <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Workforce Score</p>
-            <p style={{ fontSize: '11px', color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1.5 }}>Unlocks after your team&rsquo;s first week of real work.</p>
+            <p style={{ fontSize: '11px', color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1.5 }}>
+              {score?.score != null ? 'Live, from your team’s real work.' : 'Unlocks once your team has real work to measure.'}
+            </p>
           </div>
 
           <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: 'var(--shadow)', padding: '16px 18px' }}>
-            <p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>Score Breakdown</p>
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              Your score breaks down task completion, lead generation, content output, response speed, and data accuracy once your team has a week of real activity to measure.
-            </p>
+            <p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Score Breakdown</p>
+            {score?.score != null && score.components.length > 0 ? (
+              score.components.map(c => (
+                <div key={c.key} style={{ marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{c.label}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)', fontWeight: '700' }}>{c.value}</span>
+                  </div>
+                  <div style={{ height: '3px', background: 'var(--border)', borderRadius: '999px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', background: 'var(--accent)', borderRadius: '999px', width: `${c.value}%`, transition: 'width 1s ease' }} />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                Once your team logs real work, the score breaks down task execution, pipeline, and momentum here.
+              </p>
+            )}
           </div>
         </div>
 
