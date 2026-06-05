@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getCompanyProfile, getTasks, getDashboardStats, type DashboardStats } from '@/lib/data';
+import { getCompanyProfile, getTasks, getActivity, getWorkforceStats, type WorkforceStats } from '@/lib/data';
+import { getLeads, getDrafts } from '@/lib/leads';
+import type { Task, ActivityItem } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 
 const weekDates = (() => {
@@ -17,39 +19,65 @@ const weekDates = (() => {
   };
 })();
 
-const highlights = [
-  { emp: 'Aria', color: '#a78bfa', win: 'Booked 28 discovery calls — 22% above target. Fintech segment responding best to the direct email sequence.' },
-  { emp: 'Nova', color: '#34d399', win: 'Published 31 pieces of content. Organic traffic up 24% MoM. The SEO keyword cluster is gaining traction.' },
-  { emp: 'Opus', color: '#60a5fa', win: 'Saved 47 hours of manual work. Onboarding SOP v2 is complete and ready for review.' },
-];
+interface AttentionItem { label: string; priority: 'high' | 'medium'; owner: string }
 
-const attentionItems = [
-  { label: 'No email sequence scheduled for the SMB segment', priority: 'high', owner: 'Aria' },
-  { label: 'September editorial calendar needs your sign-off before Nova publishes', priority: 'medium', owner: 'Nova' },
-  { label: '3 inbox threads flagged as urgent — waiting on your reply', priority: 'high', owner: 'Opus' },
-];
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '16px' }}>
+      <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
+        <h2 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{title}</h2>
+      </div>
+      <div style={{ padding: '8px 0' }}>{children}</div>
+    </div>
+  );
+}
 
-const planned = [
-  { emp: 'Aria', color: '#a78bfa', task: 'Launch SMB outreach sequence — 50 prospects targeted' },
-  { emp: 'Nova', color: '#34d399', task: 'Publish September content calendar + 4 LinkedIn posts' },
-  { emp: 'Opus', color: '#60a5fa', task: 'Weekly performance report + inbox triage' },
-];
+function EmptyRow({ text }: { text: string }) {
+  return <p style={{ fontSize: '13px', color: 'var(--text-dim)', padding: '14px 24px', lineHeight: 1.5 }}>{text}</p>;
+}
 
 export default function BriefingPage() {
   const [companyName, setCompanyName] = useState('Your Company');
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [completedCount, setCompletedCount] = useState(0);
+  const [stats, setStats] = useState<WorkforceStats | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [attention, setAttention] = useState<AttentionItem[]>([]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [p, ds, tks] = await Promise.all([getCompanyProfile(), getDashboardStats(), getTasks()]);
+      const [p, ws, tks, acts, leads, drafts] = await Promise.all([
+        getCompanyProfile(), getWorkforceStats(), getTasks(), getActivity(), getLeads(), getDrafts(),
+      ]);
       if (cancelled) return;
       if (p?.companyName) setCompanyName(p.companyName);
-      setStats(ds);
-      setCompletedCount(tks.filter(t => t.status === 'completed').length);
+      setStats(ws);
+      setTasks(tks);
+      setActivity(acts);
+
+      // Attention items are computed from REAL signals only — never invented.
+      const items: AttentionItem[] = [];
+      const pending = drafts.filter(d => d.approvalStatus === 'pending').length;
+      if (pending > 0) items.push({ label: `${pending} outreach draft${pending > 1 ? 's' : ''} waiting on your approval before anything sends`, priority: 'high', owner: 'Aria' });
+      const now = Date.now();
+      const overdue = leads.filter(l => new Date(l.nextActionAt).getTime() < now && l.status !== 'disqualified' && l.status !== 'meeting').length;
+      if (overdue > 0) items.push({ label: `${overdue} lead${overdue > 1 ? 's have' : ' has'} an overdue next action`, priority: 'high', owner: 'Aria' });
+      setAttention(items);
     })();
     return () => { cancelled = true; };
   }, []);
+
+  const completed = tasks.filter(t => t.status === 'completed');
+  const planned = tasks.filter(t => t.status === 'queued' || t.status === 'in_progress');
+  // Accomplishments come from the real activity log (most recent first).
+  const accomplishments = activity.slice(0, 6);
+
+  const bannerStats = [
+    { label: 'Tasks Completed', value: stats?.completedTasks ?? 0 },
+    { label: 'Leads Found', value: stats?.leadsFound ?? 0 },
+    { label: 'Qualified', value: stats?.qualifiedLeads ?? 0 },
+    { label: 'Meetings Booked', value: stats?.meetingsBooked ?? 0 },
+  ];
 
   return (
     <div style={{ padding: '32px 36px', maxWidth: '800px', animation: 'fadeIn 0.3s ease' }}>
@@ -68,20 +96,15 @@ export default function BriefingPage() {
         </p>
       </div>
 
-      {/* Score banner */}
+      {/* Score banner — locked until the real score formula + first week of data */}
       <div style={{ background: 'var(--accent)', borderRadius: '16px', padding: '20px 28px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Workforce Performance Score</p>
-          <p style={{ fontSize: '42px', fontWeight: '800', color: '#fff', fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{stats?.workforceScore ?? 0}</p>
-          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginTop: '4px' }}>Up 4 points from last week. Best score since launch.</p>
+          <p style={{ fontSize: '42px', fontWeight: '800', color: '#fff', fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>—</p>
+          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginTop: '4px' }}>Your score unlocks after your team&rsquo;s first week of real work.</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', textAlign: 'right' }}>
-          {[
-            { label: 'Tasks Completed', value: completedCount },
-            { label: 'Hours Saved', value: stats ? `${stats.hoursSaved}h` : '—' },
-            { label: 'Meetings Booked', value: stats?.meetingsBooked ?? 0 },
-            { label: 'Leads Generated', value: stats?.leadsGenerated ?? 0 },
-          ].map(s => (
+          {bannerStats.map(s => (
             <div key={s.label}>
               <p style={{ fontSize: '22px', fontWeight: '800', color: '#fff', fontFamily: 'var(--font-geist-mono)' }}>{s.value}</p>
               <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.65)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{s.label}</p>
@@ -90,60 +113,58 @@ export default function BriefingPage() {
         </div>
       </div>
 
-      {/* What your team accomplished */}
-      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '16px' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
-          <h2 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>What Your Team Accomplished</h2>
-        </div>
-        <div style={{ padding: '8px 0' }}>
-          {highlights.map((h, i) => (
-            <div key={h.emp} style={{ display: 'flex', gap: '14px', padding: '16px 24px', borderBottom: i < highlights.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'flex-start' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, border: `1px solid ${h.color}20` }}>
-                <EmployeeAvatar id={h.emp.toLowerCase()} size={36} />
+      {/* What your team accomplished — real activity log */}
+      <Section title="What Your Team Accomplished">
+        {accomplishments.length === 0 ? (
+          <EmptyRow text="Nothing logged this week yet. The moment your team completes real work, it shows up here — no placeholder wins." />
+        ) : accomplishments.map((a, i) => {
+          return (
+            <div key={a.id} style={{ display: 'flex', gap: '14px', padding: '14px 24px', borderBottom: i < accomplishments.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'flex-start' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '9px', overflow: 'hidden', flexShrink: 0 }}>
+                <EmployeeAvatar id={a.employeeId} size={32} />
               </div>
               <div>
-                <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '3px' }}>{h.emp}</p>
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{h.win}</p>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{a.action}</p>
+                {a.detail && <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '2px' }}>{a.detail}</p>}
               </div>
             </div>
-          ))}
-        </div>
-      </div>
+          );
+        })}
+      </Section>
 
-      {/* Needs your attention */}
-      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '16px' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
-          <h2 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Needs Your Attention</h2>
-        </div>
-        <div style={{ padding: '8px 0' }}>
-          {attentionItems.map((item, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 24px', borderBottom: i < attentionItems.length - 1 ? '1px solid var(--border)' : 'none' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: item.priority === 'high' ? 'var(--red)' : 'var(--amber)', flexShrink: 0 }} />
-              <p style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)' }}>{item.label}</p>
-              <span style={{ fontSize: '11px', color: 'var(--text-dim)', background: 'var(--bg)', border: '1px solid var(--border)', padding: '2px 10px', borderRadius: '999px', flexShrink: 0 }}>{item.owner}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Needs your attention — real signals (pending drafts, overdue leads) */}
+      <Section title="Needs Your Attention">
+        {attention.length === 0 ? (
+          <EmptyRow text="Nothing needs you right now. When a draft is waiting for approval or a lead goes overdue, it lands here." />
+        ) : attention.map((item, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 24px', borderBottom: i < attention.length - 1 ? '1px solid var(--border)' : 'none' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: item.priority === 'high' ? 'var(--red)' : 'var(--amber)', flexShrink: 0 }} />
+            <p style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)' }}>{item.label}</p>
+            <span style={{ fontSize: '11px', color: 'var(--text-dim)', background: 'var(--bg)', border: '1px solid var(--border)', padding: '2px 10px', borderRadius: '999px', flexShrink: 0 }}>{item.owner}</span>
+          </div>
+        ))}
+      </Section>
 
-      {/* Planned this week */}
-      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '16px' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
-          <h2 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Planned This Week</h2>
-        </div>
-        <div style={{ padding: '8px 0' }}>
-          {planned.map((p, i) => (
-            <div key={p.emp} style={{ display: 'flex', gap: '14px', padding: '14px 24px', borderBottom: i < planned.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0 }}>
-                <EmployeeAvatar id={p.emp.toLowerCase()} size={28} />
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{p.emp}</span> — {p.task}
-              </p>
+      {/* Planned — real queued/in-progress tasks */}
+      <Section title="Planned & In Progress">
+        {planned.length === 0 ? (
+          <EmptyRow text="No work scheduled yet. Assign a task or ask Atlas to get the team moving." />
+        ) : planned.slice(0, 8).map((t, i) => (
+          <div key={t.id} style={{ display: 'flex', gap: '14px', padding: '14px 24px', borderBottom: i < Math.min(planned.length, 8) - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center' }}>
+            <div style={{ width: '28px', height: '28px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0 }}>
+              <EmployeeAvatar id={t.assigneeId} size={28} />
             </div>
-          ))}
-        </div>
-      </div>
+            <p style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)' }}>{t.title}</p>
+            <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'capitalize', flexShrink: 0 }}>{t.status.replace('_', ' ')}</span>
+          </div>
+        ))}
+      </Section>
+
+      {completed.length > 0 && (
+        <p style={{ fontSize: '12px', color: 'var(--text-dim)', textAlign: 'center', padding: '4px 0 12px' }}>
+          {completed.length} task{completed.length > 1 ? 's' : ''} completed all-time.
+        </p>
+      )}
 
       {/* Footer */}
       <div style={{ textAlign: 'center', padding: '20px 0' }}>

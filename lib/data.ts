@@ -12,6 +12,7 @@ import type {
 } from './mockData';
 
 import { getMyCompanyId } from './company';
+import { getLeads, getDrafts } from './leads';
 
 // Re-export the company profile helpers so callers have one data layer.
 export {
@@ -240,28 +241,42 @@ export async function createMemoryEntry(input: NewMemoryInput): Promise<MemoryEn
 // Dashboard stats (derived from live data + demo constants)
 // ----------------------------------------------------------------------------
 
-export interface DashboardStats {
-  totalEmployees: number;
+// Real, company-scoped workforce stats. NEVER invent metrics (CEO mandate): every
+// number comes from actual rows (tasks, leads, drafts, activity). A fresh company
+// reads all zeros + hasActivity=false, and the UI shows honest empty states.
+// NOTE: there is intentionally NO workforceScore here — the real score formula
+// isn't built yet, so the UI shows "—" rather than a mock number.
+export interface WorkforceStats {
   activeTasks: number;
-  revenueInfluenced: string;
-  hoursSaved: number;
+  completedTasks: number;
+  leadsFound: number;
+  qualifiedLeads: number;
+  pendingDrafts: number;
   meetingsBooked: number;
-  leadsGenerated: number;
-  activeProjects: number;
-  workforceScore: number;
+  activityCount: number;
+  hasActivity: boolean;
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const [employees, tasks] = await Promise.all([getEmployees(), getTasks()]);
+export async function getWorkforceStats(): Promise<WorkforceStats> {
+  const companyId = await getMyCompanyId();
+  const empty: WorkforceStats = {
+    activeTasks: 0, completedTasks: 0, leadsFound: 0, qualifiedLeads: 0,
+    pendingDrafts: 0, meetingsBooked: 0, activityCount: 0, hasActivity: false,
+  };
+  if (!companyId) return empty;
+  const [tasks, leads, drafts, activity] = await Promise.all([
+    getTasks(), getLeads(), getDrafts(), getActivity(),
+  ]);
+  const activeTasks = tasks.filter(t => t.status === 'in_progress').length;
+  const completedTasks = tasks.filter(t => t.status === 'completed').length;
+  const leadsFound = leads.length;
+  const qualifiedLeads = leads.filter(l => l.status === 'qualified').length;
+  const pendingDrafts = drafts.filter(d => d.approvalStatus === 'pending').length;
+  const meetingsBooked = leads.filter(l => l.status === 'meeting').length;
+  const activityCount = activity.length;
   return {
-    totalEmployees: employees.length,
-    activeTasks: tasks.filter(t => t.status === 'in_progress').length,
-    revenueInfluenced: '$184K',
-    hoursSaved: 47,
-    meetingsBooked: 28,
-    leadsGenerated: 94,
-    activeProjects: [...new Set(tasks.map(t => t.project))].length,
-    workforceScore: 86,
+    activeTasks, completedTasks, leadsFound, qualifiedLeads, pendingDrafts, meetingsBooked, activityCount,
+    hasActivity: activeTasks + completedTasks + leadsFound + pendingDrafts + meetingsBooked + activityCount > 0,
   };
 }
 

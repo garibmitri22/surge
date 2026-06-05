@@ -2,39 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getEmployees, getActivity, getTasks, getDashboardStats, getCompanyProfile, type DashboardStats } from '@/lib/data';
+import { getEmployees, getActivity, getTasks, getWorkforceStats, getCompanyProfile, type WorkforceStats } from '@/lib/data';
 import type { Employee, ActivityItem, Task } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { AtlasBrief } from '@/components/AtlasBrief';
 
-function ScoreRing({ score }: { score: number }) {
-  const [drawn, setDrawn] = useState(false);
-  const r = 54;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (drawn ? score / 100 : 0) * circ;
-  const color = score >= 80 ? '#6366f1' : score >= 60 ? '#eab308' : '#ef4444';
-  useEffect(() => { setTimeout(() => setDrawn(true), 150); }, []);
-  return (
-    <svg width="130" height="130" viewBox="0 0 130 130">
-      <circle cx="65" cy="65" r={r} fill="none" stroke="#e5e7eb" strokeWidth="8" />
-      <circle cx="65" cy="65" r={r} fill="none" stroke={color} strokeWidth="8"
-        strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-        transform="rotate(-90 65 65)" style={{ transition: 'stroke-dashoffset 1.2s ease' }} />
-      <text x="65" y="60" textAnchor="middle" fill={color} fontSize="28" fontWeight="800" fontFamily="var(--font-geist-mono)">{score}</text>
-      <text x="65" y="76" textAnchor="middle" fill="#9ca3af" fontSize="9" fontFamily="var(--font-geist-sans)" letterSpacing="1">PERFORMANCE</text>
-    </svg>
-  );
-}
-
-const empColors: Record<string, string> = { aria: '#a78bfa', nova: '#34d399', opus: '#60a5fa' };
-
-const scoreBreakdown = [
-  { label: 'Task Completion', score: 91, weight: '30%' },
-  { label: 'Lead Generation', score: 87, weight: '25%' },
-  { label: 'Content Output', score: 84, weight: '20%' },
-  { label: 'Response Speed', score: 79, weight: '15%' },
-  { label: 'Data Accuracy', score: 88, weight: '10%' },
-];
+const empColors: Record<string, string> = { aria: '#a78bfa', nova: '#34d399', opus: '#60a5fa', atlas: '#f59e0b' };
 
 export default function Dashboard() {
   const router = useRouter();
@@ -47,19 +20,19 @@ export default function Dashboard() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [stats, setStats] = useState<WorkforceStats | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [emps, acts, tks, ds, profile] = await Promise.all([
-        getEmployees(), getActivity(), getTasks(), getDashboardStats(), getCompanyProfile(),
+      const [emps, acts, tks, ws, profile] = await Promise.all([
+        getEmployees(), getActivity(), getTasks(), getWorkforceStats(), getCompanyProfile(),
       ]);
       if (cancelled) return;
       setEmployees(emps);
       setActivityLog(acts);
       setTasks(tks);
-      setDashboardStats(ds);
+      setStats(ws);
       if (profile?.companyName) setCompanyName(profile.companyName);
     })();
     return () => { cancelled = true; };
@@ -71,14 +44,16 @@ export default function Dashboard() {
     return () => clearInterval(t);
   }, [activityLog.length]);
 
-  const stats = [
-    { label: 'Active Tasks', value: dashboardStats?.activeTasks ?? 0, color: '#6366f1', icon: '◻' },
-    { label: 'Revenue Influenced', value: dashboardStats?.revenueInfluenced ?? '—', color: '#34d399', icon: '◈' },
-    { label: 'Hours Saved', value: dashboardStats ? `${dashboardStats.hoursSaved}h` : '—', color: '#60a5fa', icon: '⬡' },
-    { label: 'Meetings Booked', value: dashboardStats?.meetingsBooked ?? 0, color: '#f59e0b', icon: '◎' },
-    { label: 'Leads Generated', value: dashboardStats?.leadsGenerated ?? 0, color: '#ec4899', icon: '◌' },
-    { label: 'Active Projects', value: dashboardStats?.activeProjects ?? 0, color: '#8b5cf6', icon: '◉' },
+  // Every card reads a REAL count — zero stays zero, never a fabricated number.
+  const statCards = [
+    { label: 'Active Tasks', value: stats?.activeTasks ?? 0, color: '#6366f1' },
+    { label: 'Tasks Completed', value: stats?.completedTasks ?? 0, color: '#22c55e' },
+    { label: 'Leads Found', value: stats?.leadsFound ?? 0, color: '#ec4899' },
+    { label: 'Qualified', value: stats?.qualifiedLeads ?? 0, color: '#a78bfa' },
+    { label: 'Drafts Pending', value: stats?.pendingDrafts ?? 0, color: '#f59e0b' },
+    { label: 'Meetings Booked', value: stats?.meetingsBooked ?? 0, color: '#60a5fa' },
   ];
+  const fresh = stats !== null && !stats.hasActivity;
 
   const currentTick = activityLog[tickIndex];
   const tickEmp = currentTick ? employees.find(e => e.id === currentTick.employeeId) : undefined;
@@ -97,7 +72,7 @@ export default function Dashboard() {
             {greeting}, Mitri.{companyName && <span style={{ color: 'var(--accent)' }}> {companyName}</span>} HQ
           </h1>
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-            Your AI workforce is active.{' '}
+            Your AI workforce is ready.{' '}
             <span style={{ color: 'var(--green)', fontWeight: '600' }}>
               {employees.filter(e => e.status === 'active').length} online
             </span>{' '}
@@ -112,58 +87,60 @@ export default function Dashboard() {
       {/* Atlas — Chief of Staff: the dashboard centerpiece (brief + his input) */}
       <AtlasBrief />
 
-      {/* Live Ticker */}
+      {/* Live Ticker — real activity, honest empty state */}
       <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '11px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--green)', flexShrink: 0, animation: 'pulse-green 2s infinite' }} />
+        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: currentTick ? 'var(--green)' : 'var(--text-dim)', flexShrink: 0, animation: currentTick ? 'pulse-green 2s infinite' : 'none' }} />
         <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', flexShrink: 0 }}>Live</span>
         <p key={tickIndex} style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)', animation: 'fadeIn 0.5s ease', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          <span style={{ color: empColors[currentTick?.employeeId] || '#6366f1', fontWeight: '600' }}>{tickEmp?.name}</span>
-          {currentTick ? ` — ${currentTick.action}` : ''}
+          {currentTick ? (
+            <>
+              <span style={{ color: empColors[currentTick.employeeId] || '#6366f1', fontWeight: '600' }}>{tickEmp?.name}</span>
+              {` — ${currentTick.action}`}
+            </>
+          ) : 'No activity yet. Give your team a directive and their work shows up here in real time.'}
         </p>
-        <span style={{ fontSize: '11px', color: 'var(--text-dim)', flexShrink: 0 }}>{currentTick?.timestamp}</span>
+        {currentTick && <span style={{ fontSize: '11px', color: 'var(--text-dim)', flexShrink: 0 }}>{currentTick.timestamp}</span>}
       </div>
 
       {/* Main grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '20px', marginBottom: '20px' }}>
 
-        {/* Score + Breakdown */}
+        {/* Workforce Score — locked until the real formula + first week of data */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-            <ScoreRing score={dashboardStats?.workforceScore ?? 0} />
-            <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Workforce Score</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: '600' }}>▲ +4 pts</span>
-              <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>vs last week</span>
+          <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '130px', height: '130px', borderRadius: '50%', border: '8px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '40px', fontWeight: '800', color: 'var(--text-dim)', fontFamily: 'var(--font-geist-mono)' }}>—</span>
             </div>
+            <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Workforce Score</p>
+            <p style={{ fontSize: '11px', color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1.5 }}>Unlocks after your team&rsquo;s first week of real work.</p>
           </div>
 
-          {/* Score breakdown */}
           <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: 'var(--shadow)', padding: '16px 18px' }}>
-            <p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Score Breakdown</p>
-            {scoreBreakdown.map(b => (
-              <div key={b.label} style={{ marginBottom: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{b.label}</span>
-                  <span style={{ fontSize: '11px', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)', fontWeight: '700' }}>{b.score}</span>
-                </div>
-                <div style={{ height: '3px', background: 'var(--border)', borderRadius: '999px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', background: 'var(--accent)', borderRadius: '999px', width: `${b.score}%`, transition: 'width 1s ease' }} />
-                </div>
-              </div>
-            ))}
+            <p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>Score Breakdown</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              Your score breaks down task completion, lead generation, content output, response speed, and data accuracy once your team has a week of real activity to measure.
+            </p>
           </div>
         </div>
 
         {/* Stats + Active Tasks */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-            {stats.map(s => (
+            {statCards.map(s => (
               <div key={s.label} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: 'var(--shadow)', padding: '16px 18px' }}>
                 <p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '8px' }}>{s.label}</p>
-                <p style={{ fontSize: '26px', fontWeight: '800', color: s.color, fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{s.value}</p>
+                <p style={{ fontSize: '26px', fontWeight: '800', color: s.value === 0 ? 'var(--text-dim)' : s.color, fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{s.value}</p>
               </div>
             ))}
           </div>
+
+          {fresh && (
+            <div style={{ background: 'var(--accent-dim)', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 16px' }}>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                These start at zero on purpose. The moment Aria runs a prospecting task or Nova ships content, real numbers land here. Ask Atlas to get the team moving.
+              </p>
+            </div>
+          )}
 
           {/* Active tasks quick view */}
           <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: 'var(--shadow)', overflow: 'hidden', flex: 1 }}>
@@ -171,7 +148,12 @@ export default function Dashboard() {
               <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Active Tasks</p>
               <button onClick={() => router.push('/tasks')} style={{ fontSize: '11px', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>View all →</button>
             </div>
-            {recentTasks.map((t, i) => {
+            {recentTasks.length === 0 ? (
+              <div style={{ padding: '18px', textAlign: 'center' }}>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>No tasks in progress yet.</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '2px' }}>Assign one below and your team gets to work.</p>
+              </div>
+            ) : recentTasks.map((t, i) => {
               const emp = employees.find(e => e.id === t.assigneeId);
               return (
                 <div key={t.id} style={{ padding: '12px 18px', borderBottom: i < recentTasks.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -219,26 +201,33 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Activity Feed */}
+        {/* Activity Feed — real, honest empty state */}
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
             <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Activity Feed</p>
           </div>
-          <div style={{ overflowY: 'auto', maxHeight: '340px' }}>
-            {activityLog.map((item, i) => {
-              const e = employees.find(x => x.id === item.employeeId);
-              return (
-                <div key={item.id} style={{ padding: '11px 20px', borderBottom: i < activityLog.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, marginTop: '1px' }}>{e ? <EmployeeAvatar id={e.id} size={26} /> : <div style={{ width: 26, height: 26, background: '#e5e7eb', borderRadius: '50%' }} />}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{item.action}</p>
-                    {item.detail && <p style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '2px' }}>{item.detail}</p>}
+          {activityLog.length === 0 ? (
+            <div style={{ padding: '28px 20px', textAlign: 'center' }}>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>Nothing logged yet.</p>
+              <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '2px' }}>Every action your team takes will appear here as it happens.</p>
+            </div>
+          ) : (
+            <div style={{ overflowY: 'auto', maxHeight: '340px' }}>
+              {activityLog.map((item, i) => {
+                const e = employees.find(x => x.id === item.employeeId);
+                return (
+                  <div key={item.id} style={{ padding: '11px 20px', borderBottom: i < activityLog.length - 1 ? '1px solid var(--border)' : 'none', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                    <div style={{ width: '26px', height: '26px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0, marginTop: '1px' }}>{e ? <EmployeeAvatar id={e.id} size={26} /> : <div style={{ width: 26, height: 26, background: '#e5e7eb', borderRadius: '50%' }} />}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{item.action}</p>
+                      {item.detail && <p style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '2px' }}>{item.detail}</p>}
+                    </div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-dim)', flexShrink: 0, marginTop: '2px', whiteSpace: 'nowrap' }}>{item.timestamp}</span>
                   </div>
-                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', flexShrink: 0, marginTop: '2px', whiteSpace: 'nowrap' }}>{item.timestamp}</span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
