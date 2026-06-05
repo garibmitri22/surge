@@ -6,6 +6,7 @@ import { getEmployees, getActivity, getTasks, getWorkforceStats, getCompanyProfi
 import type { Employee, ActivityItem, Task } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { AtlasBrief } from '@/components/AtlasBrief';
+import { HoursWidget } from '@/components/HoursWidget';
 
 const empColors: Record<string, string> = { aria: '#a78bfa', nova: '#34d399', opus: '#60a5fa', atlas: '#f59e0b' };
 
@@ -86,6 +87,9 @@ export default function Dashboard() {
 
       {/* Atlas — Chief of Staff: the dashboard centerpiece (brief + his input) */}
       <AtlasBrief />
+
+      {/* Team hours fuel gauge (hidden until the hours migration is applied) */}
+      <HoursWidget />
 
       {/* Live Ticker — real activity, honest empty state */}
       <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '11px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>

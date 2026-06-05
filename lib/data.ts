@@ -13,6 +13,7 @@ import type {
 
 import { getMyCompanyId } from './company';
 import { getLeads, getDrafts } from './leads';
+import { allowanceForPlan } from './pricing.mjs';
 
 // Re-export the company profile helpers so callers have one data layer.
 export {
@@ -278,6 +279,60 @@ export async function getWorkforceStats(): Promise<WorkforceStats> {
     activeTasks, completedTasks, leadsFound, qualifiedLeads, pendingDrafts, meetingsBooked, activityCount,
     hasActivity: activeTasks + completedTasks + leadsFound + pendingDrafts + meetingsBooked + activityCount > 0,
   };
+}
+
+// ----------------------------------------------------------------------------
+// Hours — the visible currency. Resilient: returns null if the hours migration
+// isn't applied yet, so the UI shows a calm fallback instead of crashing.
+// ----------------------------------------------------------------------------
+
+export interface HoursLedgerEntry {
+  id: string;
+  delta: number;
+  balanceAfter: number;
+  reason: string;
+  employeeId: string | null;
+  refType: string | null;
+  createdAt: string;
+}
+
+export interface HoursSummary {
+  balance: number;
+  allowance: number;
+  plan: string;
+  thisMonthUsed: number;
+  byEmployee: { employeeId: string; hours: number }[];
+  ledger: HoursLedgerEntry[];
+}
+
+export async function getHoursSummary(): Promise<HoursSummary | null> {
+  const companyId = await getMyCompanyId();
+  if (!companyId) return null;
+  try {
+    const { data: bal, error: balErr } = await supabase.rpc('hours_balance', { p_company: companyId });
+    if (balErr) return null; // migration not applied yet
+    const [{ data: comp }, { data: rows }] = await Promise.all([
+      supabase.from('companies').select('plan').eq('id', companyId).maybeSingle(),
+      supabase.from('hours_ledger').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(100),
+    ]);
+    const plan = (comp as { plan?: string } | null)?.plan ?? 'single';
+    const ledger: HoursLedgerEntry[] = (rows ?? []).map((r) => ({
+      id: r.id, delta: Number(r.delta), balanceAfter: Number(r.balance_after),
+      reason: r.reason, employeeId: r.employee_id, refType: r.ref_type, createdAt: r.created_at,
+    }));
+    // This month's debits, grouped by employee.
+    const monthPrefix = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const debits = ledger.filter((e) => e.delta < 0 && e.createdAt.slice(0, 7) === monthPrefix);
+    const thisMonthUsed = Math.round(debits.reduce((s, e) => s + Math.abs(e.delta), 0) * 10) / 10;
+    const byEmpMap: Record<string, number> = {};
+    for (const e of debits) { const k = e.employeeId || 'team'; byEmpMap[k] = (byEmpMap[k] ?? 0) + Math.abs(e.delta); }
+    const byEmployee = Object.entries(byEmpMap)
+      .map(([employeeId, hours]) => ({ employeeId, hours: Math.round(hours * 10) / 10 }))
+      .sort((a, b) => b.hours - a.hours);
+    return { balance: Number(bal ?? 0), allowance: allowanceForPlan(plan), plan, thisMonthUsed, byEmployee, ledger };
+  } catch {
+    return null;
+  }
 }
 
 // ----------------------------------------------------------------------------

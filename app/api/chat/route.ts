@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { buildSystemPrompt, toolsFor, isRequiredSetMet, PROFILE_MEMORY_TYPES } from '@/lib/chat-prompt.mjs';
+import { allowanceForPlan } from '@/lib/pricing.mjs';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -296,6 +297,7 @@ export async function POST(request: Request) {
   let allTasks: { title: string; status: string; project: string; due_date: string; assignee_id: string }[] = [];
   let leadPipeline: { total: number; qualified: number; drafted: number; pendingDrafts: number; overdue: number } | null = null;
   let kpiSnapshot: { employee: string; open: number; done: number }[] = [];
+  let hoursStatus: { balance: number; allowance: number; low: boolean } | null = null;
   if (isChiefOfStaff) {
     const [{ data: everyTask }, { data: leadRows }, { data: draftRows }] = await Promise.all([
       supabase.from('tasks').select('title, status, project, due_date, assignee_id').eq('company_id', companyId).order('sort_order', { ascending: false }).limit(200),
@@ -320,6 +322,18 @@ export async function POST(request: Request) {
       if (t.status === 'completed') byEmp[e].done++; else byEmp[e].open++;
     }
     kpiSnapshot = Object.entries(byEmp).map(([employeeKey, v]) => ({ employee: employeeKey, open: v.open, done: v.done }));
+
+    // Hours status for the brief (low-balance overtime nudge). Guarded so the chat
+    // still works if the hours migration hasn't been applied yet.
+    try {
+      const { data: bal, error: balErr } = await supabase.rpc('hours_balance', { p_company: companyId });
+      if (!balErr) {
+        const plan = ((company as Record<string, unknown> | null)?.plan as string) || 'single';
+        const allowance = allowanceForPlan(plan);
+        const balance = Number(bal ?? 0);
+        hoursStatus = { balance, allowance, low: allowance > 0 && balance / allowance < 0.15 };
+      }
+    } catch { /* migration not applied yet — omit hours from the brief */ }
   }
 
   const persona = await loadPersona(employeeId);
@@ -335,6 +349,7 @@ export async function POST(request: Request) {
     allTasks,
     leadPipeline,
     kpiSnapshot,
+    hoursStatus,
     intakeMode,
     researchFindings: intakeMode
       ? ((company as Record<string, unknown> | null)?.research_findings as Record<string, unknown> | null) ?? null

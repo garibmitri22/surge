@@ -5,7 +5,11 @@ import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { UserPlus, MessageSquare, Zap, Check, ChevronDown } from "lucide-react";
-import { SINGLE_LABEL, TEAM_LABEL } from "@/lib/pricing.mjs";
+import { SINGLE_LABEL, TEAM_LABEL, ALLOWANCES, HOUR_PRICES } from "@/lib/pricing.mjs";
+
+// Plain-English "about N runs" derived from the hour math (no overpromising).
+const SINGLE_RUNS = Math.round(ALLOWANCES.single / HOUR_PRICES.aria_run);
+const TEAM_RUNS = Math.round(ALLOWANCES.team / HOUR_PRICES.aria_run);
 
 // Contact-sales destination (placeholder — update to the real sales inbox).
 const CONTACT_SALES_MAILTO = "mailto:hello@surge.app?subject=Surge%20Enterprise%20inquiry";
@@ -111,9 +115,10 @@ const plans = [
     features: [
       "1 AI employee — Aria, Nova, or Opus",
       "Atlas, your Chief of Staff — included",
+      `${ALLOWANCES.single} hours of employee time a month (about ${SINGLE_RUNS} prospecting runs)`,
+      "Unlimited chat — talking to your team is always free",
+      "Overtime anytime, so you never get stuck",
       "Daily morning brief & live dashboard",
-      "Works a full workday, every day",
-      "Email support",
     ],
     highlighted: false,
   },
@@ -125,8 +130,9 @@ const plans = [
     features: [
       "Aria, Nova & Opus — your full AI workforce",
       "Atlas, your Chief of Staff — included",
-      "Your whole team works a full workday, every day",
-      "Real-time Workforce Performance Score",
+      `${ALLOWANCES.team} hours of team time a month (about ${TEAM_RUNS} prospecting runs)`,
+      "Unlimited chat — talking to your team is always free",
+      "Overtime anytime, so you never get stuck",
       "Priority support & custom training",
     ],
     highlighted: true,
@@ -138,8 +144,8 @@ const plans = [
     period: "",
     description: "For larger teams with custom needs",
     features: [
-      "Unlimited employees + Atlas",
-      "Higher capacity & custom quotas",
+      "Custom team size + Atlas",
+      "Custom hour allowances",
       "Dedicated support",
       "Enterprise integrations",
       "SLA guarantee",

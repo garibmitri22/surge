@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCompanyProfile, resetOnboarding, CompanyProfile } from '@/lib/data';
+import { getCompanyProfile, resetOnboarding, getHoursSummary, type CompanyProfile, type HoursSummary } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
+import { SINGLE_LABEL, TEAM_LABEL, formatHours } from '@/lib/pricing.mjs';
 
 export default function SettingsPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
+  const [hours, setHours] = useState<HoursSummary | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const p = await getCompanyProfile();
-      if (!cancelled) setProfile(p);
+      const [p, h] = await Promise.all([getCompanyProfile(), getHoursSummary()]);
+      if (!cancelled) { setProfile(p); setHours(h); }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -78,23 +80,63 @@ export default function SettingsPage() {
       <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '20px' }}>
         <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Workforce Plan</h2>
-          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Current subscription and billing.</p>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Your plan and team hours.</p>
         </div>
         <div style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '20px', background: 'var(--accent-dim)', border: '1px solid #6366f130', borderRadius: '12px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '800', color: '#fff' }}>S</div>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>Growth Plan</p>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>3 AI employees · Unlimited tasks · Priority support</p>
+          {(() => {
+            const isTeam = hours?.plan === 'team';
+            const name = isTeam ? 'Team' : 'Single Employee';
+            const price = isTeam ? TEAM_LABEL : SINGLE_LABEL;
+            const detail = isTeam
+              ? `Aria, Nova & Opus, run by Atlas · ${hours ? formatHours(hours.allowance) : '200h'} of team time a month`
+              : `One AI employee, run by Atlas · ${hours ? formatHours(hours.allowance) : '70h'} of team time a month`;
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '20px', background: 'var(--accent-dim)', border: '1px solid #6366f130', borderRadius: '12px' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '800', color: '#fff' }}>S</div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>{name} Plan</p>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{detail}</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: '22px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)' }}>{price}</p>
+                  <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>per month</p>
+                </div>
+              </div>
+            );
+          })()}
+          {hours && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', padding: '0 4px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatHours(hours.balance)} of team time left this month</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{formatHours(hours.thisMonthUsed)} used · overtime available anytime</span>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: '22px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)' }}>$897</p>
-              <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>per month</p>
-            </div>
-          </div>
+          )}
           <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '12px', textAlign: 'center' }}>Billing coming soon. You&rsquo;re on the founder&rsquo;s free plan.</p>
         </div>
       </div>
+
+      {/* Timesheet — the full hours ledger */}
+      {hours && hours.ledger.length > 0 && (
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '20px' }}>
+          <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
+            <h2 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Timesheet</h2>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Every hour granted and worked.</p>
+          </div>
+          <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+            {hours.ledger.map((e, i) => (
+              <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '14px', alignItems: 'center', padding: '12px 24px', borderBottom: i < hours.ledger.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                <div>
+                  <p style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{e.reason}</p>
+                  <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{new Date(e.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}{e.employeeId ? ` · ${e.employeeId}` : ''}</p>
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: 700, fontFamily: 'var(--font-geist-mono)', color: e.delta >= 0 ? 'var(--green)' : 'var(--text-secondary)' }}>
+                  {e.delta >= 0 ? '+' : ''}{formatHours(e.delta)}
+                </span>
+                <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontFamily: 'var(--font-geist-mono)', minWidth: '48px', textAlign: 'right' }}>{formatHours(e.balanceAfter)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Danger Zone */}
       <div style={{ background: 'var(--card)', border: '1px solid #ef444430', borderRadius: '16px', overflow: 'hidden' }}>
