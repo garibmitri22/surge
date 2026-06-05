@@ -28,6 +28,8 @@ export type Database = {
           created_at: string;
           research_findings: unknown | null;
           plan: string;
+          physical_address: string | null;
+          warmup_started_at: string | null;
         };
         Insert: {
           id?: string;
@@ -44,6 +46,8 @@ export type Database = {
           created_at?: string;
           research_findings?: unknown | null;
           plan?: string;
+          physical_address?: string | null;
+          warmup_started_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['companies']['Insert']>;
         Relationships: [];
@@ -322,6 +326,50 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['hours_ledger']['Insert']>;
         Relationships: [];
       };
+      email_sends: {
+        Row: {
+          id: string;
+          company_id: string;
+          lead_id: string | null;
+          to_email: string;
+          subject: string;
+          status: string;
+          reason: string | null;
+          provider_id: string | null;
+          unsub_token: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          lead_id?: string | null;
+          to_email: string;
+          subject: string;
+          status?: string;
+          reason?: string | null;
+          provider_id?: string | null;
+          unsub_token?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['email_sends']['Insert']>;
+        Relationships: [];
+      };
+      email_suppressions: {
+        Row: {
+          company_id: string;
+          email: string;
+          reason: string;
+          created_at: string;
+        };
+        Insert: {
+          company_id: string;
+          email: string;
+          reason?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['email_suppressions']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -332,6 +380,10 @@ export type Database = {
       hours_append: {
         Args: { p_company: string; p_delta: number; p_reason: string; p_employee?: string | null; p_ref_type?: string | null; p_ref_id?: string | null };
         Returns: number;
+      };
+      email_unsubscribe: {
+        Args: { p_token: string };
+        Returns: boolean;
       };
     };
     Enums: { [_ in never]: never };

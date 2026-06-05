@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCompanyProfile, resetOnboarding, getHoursSummary, type CompanyProfile, type HoursSummary } from '@/lib/data';
+import { getCompanyProfile, resetOnboarding, getHoursSummary, getMyCompanyId, type CompanyProfile, type HoursSummary } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { SINGLE_LABEL, TEAM_LABEL, formatHours } from '@/lib/pricing.mjs';
 
@@ -10,15 +10,31 @@ export default function SettingsPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [hours, setHours] = useState<HoursSummary | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [address, setAddress] = useState('');
+  const [addrState, setAddrState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [p, h] = await Promise.all([getCompanyProfile(), getHoursSummary()]);
-      if (!cancelled) { setProfile(p); setHours(h); }
+      const [p, h, id] = await Promise.all([getCompanyProfile(), getHoursSummary(), getMyCompanyId()]);
+      if (cancelled) return;
+      setProfile(p); setHours(h); setCompanyId(id);
+      if (id) {
+        const { data } = await supabase.from('companies').select('physical_address').eq('id', id).maybeSingle();
+        if (!cancelled && data?.physical_address) setAddress(data.physical_address);
+      }
     })();
     return () => { cancelled = true; };
   }, []);
+
+  async function saveAddress() {
+    if (!companyId) return;
+    setAddrState('saving');
+    await supabase.from('companies').update({ physical_address: address.trim() || null }).eq('id', companyId);
+    setAddrState('saved');
+    setTimeout(() => setAddrState('idle'), 2000);
+  }
 
   async function handleReset() {
     if (confirm('This will restart the onboarding interview. Your AI workforce will be re-trained on your new answers. Continue?')) {
@@ -111,6 +127,29 @@ export default function SettingsPage() {
             </div>
           )}
           <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '12px', textAlign: 'center' }}>Billing coming soon. You&rsquo;re on the founder&rsquo;s free plan.</p>
+        </div>
+      </div>
+
+      {/* Sending & Compliance — the CAN-SPAM physical address (required before any send) */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '20px' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Sending &amp; Compliance</h2>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Your business mailing address. Required by law in every email, so Aria can&rsquo;t send until it&rsquo;s set.</p>
+        </div>
+        <div style={{ padding: '20px 24px' }}>
+          <textarea
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder={'Acme Inc.\n123 Main St, Suite 400\nHouston, TX 77002'}
+            rows={3}
+            style={{ width: '100%', resize: 'vertical', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit', lineHeight: 1.5 }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+            <button onClick={saveAddress} disabled={addrState === 'saving'} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: '700', cursor: addrState === 'saving' ? 'default' : 'pointer' }}>
+              {addrState === 'saving' ? 'Saving…' : addrState === 'saved' ? 'Saved ✓' : 'Save address'}
+            </button>
+            {!address.trim() && <span style={{ fontSize: '12px', color: 'var(--amber)' }}>Outbound email is blocked until this is set.</span>}
+          </div>
         </div>
       </div>
 
