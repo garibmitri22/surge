@@ -4,17 +4,20 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 
-const EMPLOYEES: { id: string; name: string }[] = [
+// Atlas leads — talking to the company through the Chief of Staff is the default.
+const EMPLOYEES: { id: string; name: string; tag?: string }[] = [
+  { id: 'atlas', name: 'Atlas', tag: 'Chief of Staff' },
   { id: 'aria', name: 'Aria' },
   { id: 'nova', name: 'Nova' },
   { id: 'opus', name: 'Opus' },
 ];
 
-// "Aria, do X" / "nova: do Y" / "opus do Z" → { id, ask }
+// "Aria, do X" / "nova: do Y" / "atlas do Z" → { id, ask }. No prefix → Atlas,
+// who answers or routes the work to the right teammate.
 function parse(input: string): { id: string; ask: string } {
-  const m = input.trim().match(/^(aria|nova|opus)\b[,:]?\s*(.*)$/i);
+  const m = input.trim().match(/^(aria|nova|opus|atlas)\b[,:]?\s*(.*)$/i);
   if (m) return { id: m[1].toLowerCase(), ask: m[2].trim() };
-  return { id: 'aria', ask: input.trim() }; // default to Aria
+  return { id: 'atlas', ask: input.trim() }; // default to Atlas
 }
 
 export default function CommandBar() {
@@ -63,7 +66,7 @@ export default function CommandBar() {
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') go(value); }}
-            placeholder="Talk to your team —  e.g.  Aria, rank my top 50 leads and book them"
+            placeholder="Ask Atlas anything —  e.g.  what should I focus on today?  (or  Aria, rank my top 50 leads)"
             style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: '15px', color: 'var(--text-primary)' }}
           />
           <kbd style={{ fontSize: '10px', color: 'var(--text-dim)', border: '1px solid var(--border)', borderRadius: '6px', padding: '2px 6px' }}>esc</kbd>
@@ -76,7 +79,7 @@ export default function CommandBar() {
               onClick={() => {
                 // If the user already typed a message, keep it; otherwise just open the chat.
                 const { ask } = parse(value);
-                const hasName = /^(aria|nova|opus)\b/i.test(value.trim());
+                const hasName = /^(aria|nova|opus|atlas)\b/i.test(value.trim());
                 const askText = hasName ? ask : value.trim();
                 router.push(askText ? `/workforce/${e.id}?ask=${encodeURIComponent(askText)}` : `/workforce/${e.id}`);
                 setOpen(false);

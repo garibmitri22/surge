@@ -17,6 +17,11 @@ const avatarStyles: Record<string, { gradient: string; initials: string; textCol
     initials: 'OP',
     textColor: '#fff',
   },
+  atlas: {
+    gradient: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+    initials: 'AT',
+    textColor: '#fff',
+  },
 };
 
 const pipelineStyles: Record<string, { gradient: string; initials: string }> = {

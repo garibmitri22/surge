@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getEmployees, getActivity, getTasks, getDashboardStats, getCompanyProfile, type DashboardStats } from '@/lib/data';
 import type { Employee, ActivityItem, Task } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
+import { AtlasBrief } from '@/components/AtlasBrief';
 
 function ScoreRing({ score }: { score: number }) {
   const [drawn, setDrawn] = useState(false);
@@ -39,7 +40,10 @@ export default function Dashboard() {
   const router = useRouter();
   const [tickIndex, setTickIndex] = useState(0);
   const [companyName, setCompanyName] = useState('');
-  const [greeting, setGreeting] = useState('Good morning');
+  const [greeting] = useState(() => {
+    const h = new Date().getHours();
+    return h >= 17 ? 'Good evening' : h >= 12 ? 'Good afternoon' : 'Good morning';
+  });
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -58,9 +62,6 @@ export default function Dashboard() {
       setDashboardStats(ds);
       if (profile?.companyName) setCompanyName(profile.companyName);
     })();
-    const h = new Date().getHours();
-    if (h >= 12 && h < 17) setGreeting('Good afternoon');
-    else if (h >= 17) setGreeting('Good evening');
     return () => { cancelled = true; };
   }, []);
 
@@ -107,6 +108,9 @@ export default function Dashboard() {
           + Hire Employee
         </button>
       </div>
+
+      {/* Atlas — Chief of Staff: the dashboard centerpiece (brief + his input) */}
+      <AtlasBrief />
 
       {/* Live Ticker */}
       <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '11px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>

@@ -24,6 +24,11 @@ const SUGGESTIONS: Record<string, string[]> = {
     'Build me an onboarding SOP and create the task',
     'What needs my attention this week?',
   ],
+  atlas: [
+    'Give me my morning brief.',
+    "What's the most important thing for me to do today?",
+    'What across the team needs my attention?',
+  ],
 };
 
 export function ChatPanel({
