@@ -4,8 +4,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 // Next.js 16 renamed Middleware to Proxy. This runs before every matched
 // request: it refreshes the Supabase session cookie and gates access.
 
-// Routes reachable without being signed in.
-const PUBLIC_PATHS = ['/login', '/signup', '/landing'];
+// Routes reachable without being signed in. /legal/* are the public Terms/Privacy
+// pages; /api/unsubscribe must be reachable by email RECIPIENTS (always anonymous).
+const PUBLIC_PATHS = ['/login', '/signup', '/landing', '/legal', '/api/unsubscribe'];
 
 function isPublic(path: string): boolean {
   return PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + '/'));

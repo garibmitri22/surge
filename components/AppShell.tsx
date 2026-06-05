@@ -8,7 +8,8 @@ const NO_SIDEBAR = ['/onboarding', '/', '/landing', '/login', '/signup'];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const hideSidebar = NO_SIDEBAR.includes(pathname);
+  // Public legal pages (/legal/*) render standalone, like the marketing pages.
+  const hideSidebar = NO_SIDEBAR.includes(pathname) || pathname.startsWith('/legal');
 
   if (hideSidebar) {
     return <>{children}</>;

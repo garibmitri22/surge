@@ -797,10 +797,10 @@ function Footer() {
             <span className="text-muted-foreground text-sm">© 2026</span>
           </div>
           <nav className="flex items-center gap-6">
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href="/legal/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Privacy
             </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href="/legal/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Terms
             </a>
             <a href={CONTACT_SALES_MAILTO} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
