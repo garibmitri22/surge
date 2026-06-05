@@ -68,14 +68,36 @@ check('a Lead Lifeline recovery task was created for Aria', (tasks1 ?? []).lengt
 const { count: recycled } = await db.from('leads').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'recycled');
 check('the 90+ day lead was recycled', recycled === 1, `recycled ${recycled}`);
 
+check('daily cycle deferred while Aria has the recovery task (re-engage first)', r1.dailyCycleQueued === false, `dailyCycleQueued=${r1.dailyCycleQueued}`);
+
 const r2 = await sweep();
 const { data: tasks2 } = await db.from('tasks').select('id').eq('company_id', companyId).eq('project', 'Lead Lifeline');
 check('second run is idempotent (no duplicate task)', r2.taskCreated === false && (tasks2 ?? []).length === 1, `taskCreated=${r2.taskCreated}, tasks=${(tasks2 ?? []).length}`);
 
-await db.from('tasks').delete().eq('company_id', companyId);
-await db.from('leads').delete().eq('company_id', companyId);
-await db.from('activity_log').delete().eq('company_id', companyId);
-await db.from('companies').delete().eq('id', companyId);
+console.log('\n--- 3. Standing daily cycle (idle Aria + a directive) ---');
+const { data: co2 } = await db.from('companies').insert({ user_id: su.user.id, onboarding_complete: true, company_name: 'QA Daily Co' }).select('id').single();
+const c2 = co2.id;
+await db.from('memory_entries').insert({ id: 'm' + Date.now(), company_id: c2, type: 'icp', title: 'ICP', content: 'med spas in Conroe', tags: ['icp'], updated_at: new Date().toISOString().slice(0, 10), sort_order: Date.now() });
+// One future (non-overdue) lead so there is no recovery task — Aria is idle.
+await db.from('leads').insert({
+  company_id: c2, business_name: 'Future Co', vertical: 'med_spa', source_url: 'https://example.com',
+  score: 70, score_reasons: {}, status: 'qualified', next_action: 'follow up', next_action_at: future,
+});
+async function sweep2() { const res = await fetch(`${BASE}/api/heartbeat`, { method: 'POST', headers: { Cookie: cookie() } }); return res.json().catch(() => ({})); }
+const d1 = await sweep2();
+const { data: dtasks } = await db.from('tasks').select('id').eq('company_id', c2).eq('project', 'Daily Prospecting');
+check('idle Aria with an ICP gets a daily prospecting task', d1.dailyCycleQueued === true && (dtasks ?? []).length === 1, `queued=${d1.dailyCycleQueued}, tasks=${(dtasks ?? []).length}`);
+const d2 = await sweep2();
+const { data: dtasks2 } = await db.from('tasks').select('id').eq('company_id', c2).eq('project', 'Daily Prospecting');
+check('daily cycle is idempotent (Aria now busy → no second task)', d2.dailyCycleQueued === false && (dtasks2 ?? []).length === 1, `queued=${d2.dailyCycleQueued}, tasks=${(dtasks2 ?? []).length}`);
+
+for (const id of [companyId, c2]) {
+  await db.from('tasks').delete().eq('company_id', id);
+  await db.from('leads').delete().eq('company_id', id);
+  await db.from('activity_log').delete().eq('company_id', id);
+  await db.from('memory_entries').delete().eq('company_id', id);
+  await db.from('companies').delete().eq('id', id);
+}
 
 console.log(failures === 0 ? '\nHEARTBEAT PASSED — overdue surfaced, stale recycled, idempotent.' : `\n${failures} CHECK(S) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

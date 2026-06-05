@@ -26,7 +26,7 @@ export default function LeadsPage() {
       if (cancelled) return;
       const now = Date.now();
       setLeads(l); setDrafts(d); setLoaded(true); setNowTs(now);
-      setOverdueCount(l.filter((x) => new Date(x.nextActionAt).getTime() < now && x.status !== 'disqualified' && x.status !== 'meeting').length);
+      setOverdueCount(l.filter((x) => new Date(x.nextActionAt).getTime() < now && !['disqualified', 'meeting', 'recycled'].includes(x.status)).length);
     })();
     return () => { cancelled = true; };
   }, []);
