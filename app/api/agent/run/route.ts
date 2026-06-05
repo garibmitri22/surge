@@ -3,10 +3,9 @@ import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
-import {
-  quotaForPlan, currentPeriod, estCostUsd, capacityMessage, RESEARCH_MODEL, WRITING_MODEL,
-} from '@/lib/usage-config.mjs';
-import { injectPricing, PRICE_SINGLE, PRICE_TEAM, PRICE_HUMAN_ANCHOR } from '@/lib/pricing.mjs';
+import { estCostUsd, RESEARCH_MODEL, WRITING_MODEL } from '@/lib/usage-config.mjs';
+import { injectPricing, PRICE_SINGLE, PRICE_TEAM, PRICE_HUMAN_ANCHOR, estimateHours, formatHours } from '@/lib/pricing.mjs';
+import { gateWork, debitHours } from '@/lib/hours.mjs';
 
 const MAX_ITERATIONS = 18;
 
@@ -224,29 +223,16 @@ export async function POST(request: Request) {
   const { data: company } = await supabase.from('companies').select('*').eq('id', companyId).maybeSingle();
   const { data: memory } = await supabase.from('memory_entries').select('type, title, content').eq('company_id', companyId).order('sort_order', { ascending: false }).limit(30);
 
-  // ---- USAGE QUOTA — checked and charged BEFORE any API spend ---------------
-  // Charge on START, not completion: a crashed run still consumed real money.
-  // The increment is atomic (single SQL statement) so concurrent runs can't race
-  // past the cap. `plan` is read defensively — there is no plan column yet, so it
-  // resolves to the default quota until tiers are wired to the company row.
-  const plan = (company as Record<string, unknown> | null)?.plan as string | undefined;
-  const quota = quotaForPlan(plan);
-  const period = currentPeriod();
-  const { data: runsUsed, error: quotaErr } = await supabase.rpc('consume_task_run', {
-    p_company: companyId, p_employee: employeeId, p_period: period, p_limit: quota.taskRunsPerMonth,
-  });
-  if (quotaErr) return new Response(`Usage check failed: ${quotaErr.message}`, { status: 500 });
-  if (runsUsed == null) {
-    // At quota. Refuse cleanly, in character — an upsell, never a raw error. The
-    // task is NOT marked in_progress, so it stays runnable next period.
+  // ---- HOURS GATE — checked BEFORE any API spend, charged on completion ------
+  // A full prospecting cycle costs aria_run hours. We gate on the balance up front
+  // (don't start work we can't afford) but DEBIT on completion, and charge ZERO for
+  // a thin/failed run — the customer never pays for our misses. Running out is an
+  // in-character overtime moment, not a raw error; the task stays runnable.
+  const gate = await gateWork(supabase, companyId, 'aria_run', employee?.name ?? employeeId);
+  if (!gate.ok) {
     return Response.json(
-      {
-        ok: false,
-        quota_exceeded: true,
-        message: capacityMessage(employee?.name ?? employeeId, quota),
-        created_this_run: { leads: 0, drafts: 0 },
-      },
-      { status: 429 }
+      { ok: false, out_of_hours: true, message: gate.message, balance_hours: gate.balance, hours_needed: gate.estimate, created_this_run: { leads: 0, drafts: 0 } },
+      { status: 402 }
     );
   }
 
@@ -391,18 +377,35 @@ Notes: ${l.notes ?? 'none'}`;
 
     await supabase.from('tasks').update({ status: 'completed' }).eq('id', taskId).eq('company_id', companyId);
 
+    // Charge hours on completion. A THIN run (produced no leads) costs ZERO — the
+    // customer never pays for our misses. Otherwise debit the estimated cost.
+    const thin = counters.leads === 0;
+    const charged = thin ? 0 : estimateHours('aria_run');
+    const balanceAfter = await debitHours(supabase, companyId, charged, `${employee?.name ?? employeeId} task run`, { employeeId, refType: 'task', refId: taskId });
+    // Surface the time worked in the activity feed (real hours, real work).
+    if (charged > 0) {
+      await supabase.from('activity_log').insert({
+        id: 'a' + Date.now() + Math.floor(Math.random() * 1000),
+        company_id: companyId, employee_id: employeeId,
+        action: `Prospecting run — ${counters.leads} leads, ${formatHours(charged)} of time`,
+        detail: null, timestamp: 'just now', sort_order: Date.now(),
+      });
+    }
+
     return Response.json({
       ok: true,
       taskId,
       created_this_run: counters,
       pipeline_totals: { leads: leadCount ?? 0, drafts: draftCount ?? 0 },
-      usage: { runs_used: runsUsed, runs_limit: quota.taskRunsPerMonth, period, est_cost_usd: cost.usd },
+      hours: { charged, balance: balanceAfter, thin },
+      usage: { est_cost_usd: cost.usd },
       reported,
       message: lastText.slice(0, 2000),
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Run failed';
-    // Leave task in_progress so it can be re-run (idempotent via dedupe).
-    return Response.json({ ok: false, error: msg, created_this_run: counters, usage: { est_cost_usd: cost.usd } }, { status: 500 });
+    // Failed run: charge NOTHING (no debit) and leave the task in_progress so it can
+    // be re-run (idempotent via dedupe). The customer never pays for our misses.
+    return Response.json({ ok: false, error: msg, created_this_run: counters, hours: { charged: 0 }, usage: { est_cost_usd: cost.usd } }, { status: 500 });
   }
 }

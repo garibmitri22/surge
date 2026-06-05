@@ -27,6 +27,7 @@ export type Database = {
           onboarding_complete: boolean;
           created_at: string;
           research_findings: unknown | null;
+          plan: string;
         };
         Insert: {
           id?: string;
@@ -42,6 +43,7 @@ export type Database = {
           onboarding_complete?: boolean;
           created_at?: string;
           research_findings?: unknown | null;
+          plan?: string;
         };
         Update: Partial<Database['public']['Tables']['companies']['Insert']>;
         Relationships: [];
@@ -294,12 +296,42 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['usage_log']['Insert']>;
         Relationships: [];
       };
+      hours_ledger: {
+        Row: {
+          id: string;
+          company_id: string;
+          delta: number;
+          balance_after: number;
+          reason: string;
+          employee_id: string | null;
+          ref_type: string | null;
+          ref_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          delta: number;
+          balance_after: number;
+          reason: string;
+          employee_id?: string | null;
+          ref_type?: string | null;
+          ref_id?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['hours_ledger']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
-      consume_task_run: {
-        Args: { p_company: string; p_employee: string; p_period: string; p_limit: number };
-        Returns: number | null;
+      hours_balance: {
+        Args: { p_company: string };
+        Returns: number;
+      };
+      hours_append: {
+        Args: { p_company: string; p_delta: number; p_reason: string; p_employee?: string | null; p_ref_type?: string | null; p_ref_id?: string | null };
+        Returns: number;
       };
     };
     Enums: { [_ in never]: never };
