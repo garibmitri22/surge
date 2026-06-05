@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getLeads, getDrafts, setDraftApproval, type Lead, type LeadDraft } from '@/lib/leads';
+import { getLeads, getDrafts, type Lead, type LeadDraft } from '@/lib/leads';
 
 const VERTICAL_LABEL: Record<string, string> = { med_spa: 'Med Spa', real_estate: 'Real Estate', gym: 'Gym', other: 'Other' };
 const STATUS_COLOR: Record<string, string> = {
@@ -33,9 +33,22 @@ export default function LeadsPage() {
 
   const filtered = leads.filter((l) => (vFilter === 'all' || l.vertical === vFilter) && (sFilter === 'all' || l.status === sFilter));
 
-  async function decide(id: string, status: 'approved' | 'rejected') {
-    setDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, approvalStatus: status } : d)));
-    await setDraftApproval(id, status);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  // Approve = consent to send. The server attempts delivery (warmup + CAN-SPAM +
+  // suppression gated) and tells us what happened (sent / queued / why-not).
+  async function decide(id: string, action: 'approve' | 'reject') {
+    setDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, approvalStatus: action === 'approve' ? 'approved' : 'rejected' } : d)));
+    try {
+      const res = await fetch('/api/leads/approve', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draftId: id, action }),
+      });
+      const r = await res.json().catch(() => ({}));
+      if (r.status) setDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, approvalStatus: r.status } : d)));
+      if (r.message) setNotes((prev) => ({ ...prev, [id]: r.message }));
+    } catch {
+      setNotes((prev) => ({ ...prev, [id]: 'Something went wrong — please try again.' }));
+    }
   }
 
   return (
@@ -123,13 +136,15 @@ export default function LeadsPage() {
                             <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', margin: '6px 0 10px', lineHeight: 1.5 }}>{d.body}</p>
                             {d.approvalStatus === 'pending' ? (
                               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <button onClick={() => decide(d.id, 'approved')} className="btn-primary" style={{ padding: '6px 14px', fontSize: '12px' }}>Approve</button>
-                                <button onClick={() => decide(d.id, 'rejected')} className="btn-ghost" style={{ padding: '6px 14px', fontSize: '12px' }}>Reject</button>
-                                <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginLeft: '4px' }}>Sending goes live when email is connected.</span>
+                                <button onClick={() => decide(d.id, 'approve')} className="btn-primary" style={{ padding: '6px 14px', fontSize: '12px' }}>Approve &amp; send</button>
+                                <button onClick={() => decide(d.id, 'reject')} className="btn-ghost" style={{ padding: '6px 14px', fontSize: '12px' }}>Reject</button>
                               </div>
                             ) : (
-                              <span style={{ fontSize: '11px', color: d.approvalStatus === 'approved' ? 'var(--green)' : 'var(--text-dim)', fontWeight: '600', textTransform: 'capitalize' }}>{d.approvalStatus}</span>
+                              <span style={{ fontSize: '11px', color: d.approvalStatus === 'sent' ? 'var(--green)' : d.approvalStatus === 'approved' ? 'var(--amber)' : 'var(--text-dim)', fontWeight: '600', textTransform: 'capitalize' }}>
+                                {d.approvalStatus === 'sent' ? 'Sent ✓' : d.approvalStatus}
+                              </span>
                             )}
+                            {notes[d.id] && <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '6px', lineHeight: 1.5 }}>{notes[d.id]}</p>}
                           </div>
                         ))}
                       </div>

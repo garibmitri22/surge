@@ -40,6 +40,12 @@ check('send sets List-Unsubscribe + one-click headers', /List-Unsubscribe/.test(
 check('send enforces the warmup cap', /warmupCapForDay/.test(sendSrc) && /warmup_cap/.test(sendSrc));
 const unsubRoute = readFileSync('app/api/unsubscribe/route.ts', 'utf8');
 check('unsubscribe route honors GET + one-click POST via the RPC', /export async function GET/.test(unsubRoute) && /export async function POST/.test(unsubRoute) && /email_unsubscribe/.test(unsubRoute));
+// Send-on-approval is wired (owner approval -> deliverDraft -> sendEmail).
+check('deliverDraft sends + advances the lead on success', /export async function deliverDraft/.test(sendSrc) && /approval_status: 'sent'/.test(sendSrc) && /status: 'contacted'/.test(sendSrc));
+const approveRoute = readFileSync('app/api/leads/approve/route.ts', 'utf8');
+check('approve route calls deliverDraft (nothing sends without approval)', /deliverDraft/.test(approveRoute) && /'approve'/.test(approveRoute) && /'reject'/.test(approveRoute));
+const hb = readFileSync('lib/heartbeat.mjs', 'utf8');
+check('heartbeat drips approved drafts up to the warmup cap', /deliverDraft/.test(hb) && /warmup_cap/.test(hb) && /isConfigured\(\)/.test(hb));
 
 console.log('\n--- 5. Live (pending accounts + DNS) ---');
 skip('SPF/DKIM/DMARC resolve + Resend domain verified + real send', 'set RESEND_API_KEY + run email_migration.sql + add DNS records, then re-run');
