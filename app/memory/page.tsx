@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getMemoryEntries, createMemoryEntry } from '@/lib/data';
+import { getMemoryEntries, createMemoryEntry, deleteMemoryEntry } from '@/lib/data';
 import type { MemoryEntry, MemoryType } from '@/lib/mockData';
 
 const typeColors: Record<MemoryType, string> = {
@@ -56,6 +56,22 @@ export default function MemoryPage() {
     setEntries(prev => [entry, ...prev]);
     setForm({ type: 'note', title: '', content: '', tags: '' });
     setShowModal(false);
+  }
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  async function removeEntry(id: string) {
+    if (deletingId) return;
+    if (!confirm('Delete this from the company brain? Your AI team will no longer use it. This cannot be undone.')) return;
+    setDeletingId(id);
+    try {
+      await deleteMemoryEntry(id);
+      setEntries(prev => prev.filter(e => e.id !== id));
+      setExpandedId(prev => (prev === id ? null : prev));
+    } catch {
+      alert('Could not delete that entry. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   const typeCounts = entries.reduce((acc, e) => {
@@ -120,6 +136,15 @@ export default function MemoryPage() {
                       <span key={tag} style={{ fontSize: '10px', color: 'var(--text-dim)', background: 'var(--surface)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: '999px' }}>#{tag}</span>
                     ))}
                     <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'var(--text-dim)' }}>Updated {entry.updatedAt}</span>
+                    {expanded && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeEntry(entry.id); }}
+                        disabled={deletingId === entry.id}
+                        style={{ fontSize: '11px', color: '#ef4444', background: '#ef444415', border: '1px solid #ef444430', borderRadius: '7px', padding: '4px 10px', cursor: deletingId === entry.id ? 'default' : 'pointer', fontWeight: '600' }}
+                      >
+                        {deletingId === entry.id ? 'Deleting…' : 'Delete'}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <span style={{ color: 'var(--text-dim)', fontSize: '14px', flexShrink: 0 }}>{expanded ? '▲' : '▼'}</span>

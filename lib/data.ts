@@ -238,6 +238,14 @@ export async function createMemoryEntry(input: NewMemoryInput): Promise<MemoryEn
   return mapMemory(data as MemoryRow);
 }
 
+export async function deleteMemoryEntry(id: string): Promise<void> {
+  const companyId = await getMyCompanyId();
+  if (!companyId) throw new Error('No company found — complete onboarding first.');
+  // Scoped to the company so a user can only ever delete their own brain entries.
+  const { error } = await supabase.from('memory_entries').delete().eq('id', id).eq('company_id', companyId);
+  if (error) throw error;
+}
+
 // ----------------------------------------------------------------------------
 // Dashboard stats (derived from live data + demo constants)
 // ----------------------------------------------------------------------------
