@@ -7,7 +7,8 @@ import { applySweep } from '@/lib/heartbeat.mjs';
 // session, so it uses the service-role key (bypasses RLS) — and is therefore guarded
 // by CRON_SECRET. Dormant until both are set (mirrors the email scaffolding pattern):
 //   SUPABASE_SERVICE_ROLE_KEY=...   CRON_SECRET=...
-// then point a daily cron at: POST /api/cron/heartbeat  (Authorization: Bearer <CRON_SECRET>)
+// vercel.json schedules a daily GET; Vercel auto-sends Authorization: Bearer $CRON_SECRET.
+// (POST also works for manual triggers; both share runCron.)
 
 function authorized(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -18,7 +19,9 @@ function authorized(request: Request): boolean {
   return bearer === secret || q === secret;
 }
 
-export async function POST(request: Request) {
+// Vercel cron invokes with GET (auto-sending Authorization: Bearer $CRON_SECRET);
+// support POST too for manual/curl triggers. Both run the same job.
+async function runCron(request: Request) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey || !process.env.CRON_SECRET) {
     return Response.json({ ok: false, reason: 'cron_not_configured' }, { status: 503 });
@@ -42,3 +45,6 @@ export async function POST(request: Request) {
   }
   return Response.json({ ok: true, companies: results.length, results });
 }
+
+export const GET = runCron;
+export const POST = runCron;
