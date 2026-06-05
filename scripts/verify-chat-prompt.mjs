@@ -29,7 +29,7 @@ const system = buildSystemPrompt({
     industry: 'AI Workforce Platform (SaaS)',
     target_customers: 'business owners with 1-20 employees, $500K-$5M revenue, frustrated with hiring costs/turnover',
     brand_tone: 'sharp, direct, confident, human',
-    main_goal: 'book qualified meetings for the $299/mo AI employee',
+    main_goal: 'book qualified meetings for the AI employee',
     competitors: 'Jasper, Copy.ai, Relevance AI',
     employee_count: 3,
   },
@@ -91,6 +91,10 @@ check('never claims a missing/"not connected" integration', !hit, hit ? `matched
 check('turn 1 proposes a plan + asks approval (no premature task)', !createdTaskBeforeApproval, 'task not created before "yes"');
 check('creates the task after approval', !!createdTask, createdTask ? `title: ${createdTask.title}` : 'create_task never called');
 check('points the owner to Run / the Tasks page', /\brun\b/i.test(t2) || /tasks page/i.test(t2), 'mentions Run/Tasks page');
+// Voice rule (shared): no reply should lean on em-dashes (max 1 by rule; fail at 3+).
+const emDash = (s) => (s.match(/—/g) || []).length;
+const maxEm = Math.max(emDash(t1), emDash(t2));
+check('voice: no reply uses 3+ em-dashes', maxEm < 3, `max ${maxEm} em-dashes in a reply`);
 
 console.log(failures === 0 ? '\nALL CHECKS PASSED — chat prompt fix verified live (production prompt imported, not mirrored).' : `\n${failures} CHECK(S) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

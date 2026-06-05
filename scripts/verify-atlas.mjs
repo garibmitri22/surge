@@ -91,8 +91,44 @@ if (!env.ANTHROPIC_API_KEY) {
     const mentionsTeam = /aria/i.test(text) && (/nova/i.test(text) || /opus/i.test(text));
     check('Atlas opens with a real morning brief referencing the team', text.length > 60 && mentionsTeam);
     check('no fabricated results (does not invent meetings/revenue not in data)', !/\b\d+\s+(meetings booked|deals closed)\b/i.test(text) && !/\$\d[\d,]*\s*(in pipeline|revenue|ARR)/i.test(text));
+    // Voice rule (shared): even the morning brief shouldn't lean on em-dashes (max 1 by rule; fail at 3+).
+    const emCount = (text.match(/—/g) || []).length;
+    check('voice: morning brief stays under 3 em-dashes', emCount < 3, `${emCount} em-dashes`);
   } catch (e) {
     check('live morning brief', false, e instanceof Error ? e.message : 'API error');
+  }
+}
+
+console.log('\n--- 7. Works the problem: surfaces a contradiction, no stock question ---');
+if (!env.ANTHROPIC_API_KEY) {
+  check('contradiction handling', false, 'ANTHROPIC_API_KEY missing — skipped');
+} else {
+  try {
+    const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+    // Filled brain with a built-in contradiction: the ICP on file is broad/high-ticket,
+    // but the active GTM list is a specific set of verticals. A scripted agent asks
+    // "who's your ICP?"; Atlas should NAME the conflict and ask which to follow.
+    const contraPrompt = buildSystemPrompt({
+      ...base, persona, employee: { name: 'Atlas', role: 'Chief of Staff', personality: '', bio: '', responsibilities: [] },
+      tasks: [], isChiefOfStaff: true, allTasks: [], leadPipeline: null, kpiSnapshot: [],
+      company: { ...base.company, target_customers: 'high-ticket business owners, intentionally kept broad' },
+      memory: [
+        { type: 'icp', title: 'ICP', content: 'high-ticket business owners, kept broad' },
+        { type: 'process', title: 'GTM list', content: 'Active GTM target list: med spas, real estate, gyms, North Houston up to Conroe' },
+      ],
+    });
+    const resp = await client.messages.create({
+      model: 'claude-sonnet-4-6', max_tokens: 600,
+      system: contraPrompt, tools: chatTools, messages: [{ role: 'user', content: 'Tell Aria who to target so she can start outreach.' }],
+    });
+    const text = resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+    console.log('\n----- Atlas, contradiction scenario -----\n' + text + '\n-----------------------------------------');
+    const mentionsBoth = /high[\s-]?ticket/i.test(text) && /med spa/i.test(text);
+    const stockQuestion = /who (is|are) your (ideal|target) (customer|client|audience)/i.test(text);
+    check('surfaces the ICP-vs-GTM contradiction (names both)', mentionsBoth, mentionsBoth ? 'named both' : 'did not name both targets');
+    check('does NOT fall back to a stock "who is your ICP?" question', !stockQuestion);
+  } catch (e) {
+    check('contradiction handling', false, e instanceof Error ? e.message : 'API error');
   }
 }
 
