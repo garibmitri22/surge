@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
-import { buildSystemPrompt, chatTools } from '@/lib/chat-prompt.mjs';
+import { buildSystemPrompt, toolsFor, isRequiredSetMet } from '@/lib/chat-prompt.mjs';
 
 const MODEL = 'claude-sonnet-4-6';
 
@@ -12,14 +12,31 @@ const MODEL = 'claude-sonnet-4-6';
 
 type SupabaseServer = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
+// Ordered by created_at so a not-yet-complete DRAFT row (Atlas intake writes to it
+// as it goes) is found too — completed_at is null on a draft.
 async function getCompanyId(supabase: SupabaseServer): Promise<string | null> {
   const { data } = await supabase
     .from('companies')
     .select('id')
-    .order('completed_at', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
   return data?.id ?? null;
+}
+
+// Onboarding v2: intake needs a company row to write to BEFORE onboarding is
+// complete. Reuse the user's existing row (draft or completed) or create a fresh
+// draft. onboarding_complete stays false until complete_onboarding flips it.
+async function getOrCreateDraftCompany(supabase: SupabaseServer, userId: string): Promise<string | null> {
+  const existing = await getCompanyId(supabase);
+  if (existing) return existing;
+  const { data, error } = await supabase
+    .from('companies')
+    .insert({ user_id: userId, onboarding_complete: false })
+    .select('id')
+    .single();
+  if (error || !data) return null;
+  return data.id;
 }
 
 async function loadPersona(employeeId: string): Promise<string | null> {
@@ -37,19 +54,72 @@ function todayStr() {
 
 // ---------------------------------------------------------------------------
 // Tools — defined in lib/chat-prompt.mjs (shared with scripts/verify-chat-prompt.mjs
-// so the live verification can never drift from production).
+// so the live verification can never drift from production). toolsFor() adds the
+// intake-only tools (save_company_profile / complete_onboarding) during onboarding.
 // ---------------------------------------------------------------------------
 
-const tools = chatTools as Anthropic.Tool[];
+// Memory kinds remember_detail may persist. Intake kinds (icp/offer/...) are the
+// personalization contract every employee reads; the rest are Atlas's working
+// memory. Anything unknown falls back to a general note.
+const MEMORY_KINDS = [
+  'decision', 'open-loop', 'idea', 'rapport', 'note',
+  'icp', 'offer', 'proof', 'voice', 'goal', 'brand-kit', 'process',
+];
 
 async function executeTool(
   name: string,
   input: Record<string, unknown>,
   supabase: SupabaseServer,
   companyId: string,
-  employeeId: string
+  employeeId: string,
+  intakeMode: boolean
 ): Promise<string> {
   const now = Date.now();
+  // ---- Intake-only tools (guarded: ignored outside onboarding) --------------
+  if (name === 'save_company_profile' || name === 'complete_onboarding') {
+    if (!intakeMode) return `Unavailable: ${name} is only callable during onboarding.`;
+
+    if (name === 'save_company_profile') {
+      // Persist only the fields actually confirmed this turn — partial updates are fine.
+      const fields: {
+        company_name?: string; industry?: string; target_customers?: string;
+        brand_tone?: string; main_goal?: string; competitors?: string; employee_count?: string;
+      } = {};
+      const clean = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+      if (clean(input.company_name)) fields.company_name = clean(input.company_name);
+      if (clean(input.industry)) fields.industry = clean(input.industry);
+      if (clean(input.target_customers)) fields.target_customers = clean(input.target_customers);
+      if (clean(input.brand_tone)) fields.brand_tone = clean(input.brand_tone);
+      if (clean(input.main_goal)) fields.main_goal = clean(input.main_goal);
+      if (clean(input.competitors)) fields.competitors = clean(input.competitors);
+      if (clean(input.employee_count)) fields.employee_count = clean(input.employee_count);
+      const keys = Object.keys(fields);
+      if (keys.length === 0) return 'Nothing to save — no confirmed fields provided.';
+      const { error } = await supabase.from('companies').update(fields).eq('id', companyId);
+      if (error) return `ERROR saving company profile: ${error.message}`;
+      return `Saved company profile fields: ${keys.join(', ')}.`;
+    }
+
+    // complete_onboarding — SERVER-GATED. The required set (icp/offer/voice/goal)
+    // must already exist as memory_entries; we re-check here so an early/optimistic
+    // model call can't finish onboarding before the brain is actually populated.
+    const { data: memRows } = await supabase
+      .from('memory_entries')
+      .select('type')
+      .eq('company_id', companyId);
+    const presentTypes = (memRows ?? []).map((m: { type: string }) => m.type);
+    if (!isRequiredSetMet(presentTypes)) {
+      const missing = ['icp', 'offer', 'voice', 'goal'].filter((t) => !presentTypes.includes(t));
+      return `NOT YET — onboarding can't complete. Still missing confirmed: ${missing.join(', ')}. Keep interviewing (one question at a time) until each is saved, then call this again.`;
+    }
+    const { error } = await supabase
+      .from('companies')
+      .update({ onboarding_complete: true, completed_at: new Date().toISOString() })
+      .eq('id', companyId);
+    if (error) return `ERROR completing onboarding: ${error.message}`;
+    return 'Onboarding complete — the company profile is live and every employee can read it. Hand off to the dashboard.';
+  }
+
   if (name === 'create_task') {
     // Resolve the assignee — anyone on the team (the Chief of Staff routes work).
     // Defaults to the current employee. Input is sanitized before it touches a filter.
@@ -78,8 +148,7 @@ async function executeTool(
     return `Task created and assigned ${who}: "${input.title}" (${input.priority} priority).`;
   }
   if (name === 'remember_detail') {
-    const ALLOWED = ['decision', 'open-loop', 'idea', 'rapport', 'note'];
-    const kind = ALLOWED.includes(String(input.kind)) ? String(input.kind) : 'rapport';
+    const kind = MEMORY_KINDS.includes(String(input.kind)) ? String(input.kind) : 'rapport';
     const defaultTitle = kind === 'rapport' ? 'Personal note' : kind.charAt(0).toUpperCase() + kind.slice(1);
     const { error } = await supabase.from('memory_entries').insert({
       id: 'm' + now,
@@ -125,7 +194,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response('Unauthorized', { status: 401 });
 
-  let body: { employeeId?: string; message?: string; conversationId?: string };
+  let body: { employeeId?: string; message?: string; conversationId?: string; intakeMode?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -135,8 +204,15 @@ export async function POST(request: Request) {
   const message = (body.message || '').trim();
   if (!employeeId || !message) return new Response('employeeId and message are required', { status: 400 });
 
-  const companyId = await getCompanyId(supabase);
-  if (!companyId) return new Response('Complete onboarding first', { status: 400 });
+  // Onboarding v2: intake runs through Atlas. In intakeMode we get-or-CREATE the
+  // draft company to write to; otherwise a company must already exist.
+  const intakeMode = body.intakeMode === true && employeeId === 'atlas';
+  const companyId = intakeMode
+    ? await getOrCreateDraftCompany(supabase, user.id)
+    : await getCompanyId(supabase);
+  if (!companyId) {
+    return new Response(intakeMode ? 'Could not start onboarding' : 'Complete onboarding first', { status: 400 });
+  }
 
   const { data: employee } = await supabase
     .from('employees')
@@ -227,7 +303,15 @@ export async function POST(request: Request) {
     allTasks,
     leadPipeline,
     kpiSnapshot,
+    intakeMode,
+    researchFindings: intakeMode
+      ? ((company as Record<string, unknown> | null)?.research_findings as Record<string, unknown> | null) ?? null
+      : null,
   });
+
+  // Intake unlocks the onboarding tools (save_company_profile / complete_onboarding);
+  // normal chat never sees them.
+  const tools = toolsFor({ intakeMode }) as Anthropic.Tool[];
 
   const client = new Anthropic();
   const convo: Anthropic.MessageParam[] = (history ?? []).map((m) => ({
@@ -264,7 +348,8 @@ export async function POST(request: Request) {
                   block.input as Record<string, unknown>,
                   supabase,
                   companyId,
-                  employeeId
+                  employeeId,
+                  intakeMode
                 );
                 toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
               }

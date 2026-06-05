@@ -6,7 +6,11 @@
 // routing checks are added as those parts land — see the build prompt's verify list.)
 import { readFileSync } from 'node:fs';
 import Anthropic from '@anthropic-ai/sdk';
-import { buildSystemPrompt, toolsFor, chatTools, intakeTools } from '../lib/chat-prompt.mjs';
+import { createClient } from '@supabase/supabase-js';
+import {
+  buildSystemPrompt, toolsFor, chatTools, intakeTools,
+  REQUIRED_INTAKE_TYPES, isRequiredSetMet,
+} from '../lib/chat-prompt.mjs';
 
 const env = Object.fromEntries(
   readFileSync('.env.local', 'utf8').split('\n').filter((l) => l.includes('='))
@@ -81,7 +85,32 @@ if (!env.ANTHROPIC_API_KEY) {
   }
 }
 
+console.log('\n--- 5. Completion gate (shared with the chat route — no drift) ---');
+// The exact function app/api/chat enforces before flipping onboarding_complete.
+check('required set is icp + offer + voice + goal', JSON.stringify([...REQUIRED_INTAKE_TYPES].sort()) === JSON.stringify(['goal', 'icp', 'offer', 'voice']), REQUIRED_INTAKE_TYPES.join(','));
+check('empty set does NOT complete', isRequiredSetMet([]) === false);
+check('partial set does NOT complete (missing goal)', isRequiredSetMet(['icp', 'offer', 'voice']) === false);
+check('full set completes', isRequiredSetMet(['icp', 'offer', 'voice', 'goal']) === true);
+check('extra kinds do not break the gate', isRequiredSetMet(['icp', 'offer', 'voice', 'goal', 'proof', 'brand-kit', 'note']) === true);
+
+console.log('\n--- 6. brand-assets bucket: anon is blocked (RLS) ---');
+if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  check('anon storage write blocked', false, 'Supabase env missing — skipped');
+} else {
+  try {
+    const anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+    const { error } = await anon.storage
+      .from('brand-assets')
+      .upload(`anon-probe/${Date.now()}.txt`, new Blob(['nope']), { upsert: false });
+    // Either the bucket RLS rejects the anon write, or (if the migration hasn't been
+    // run yet) the bucket doesn't exist — both mean an anonymous user cannot write.
+    check('anonymous user cannot write to brand-assets', error != null, error ? error.message : 'upload unexpectedly SUCCEEDED');
+  } catch (e) {
+    check('anonymous user cannot write to brand-assets', true, e instanceof Error ? e.message : 'blocked');
+  }
+}
+
 console.log(failures === 0
-  ? '\nINCREMENT 1 PASSED — Atlas intake brain verified (prompt + tools from production module; behavior tested live).'
+  ? '\nONBOARDING v2 (incr 1+2) PASSED — intake brain + lifecycle gate verified (prompt + tools + completion gate from production module; behavior tested live).'
   : `\n${failures} CHECK(S) FAILED.`);
 process.exit(failures === 0 ? 0 : 1);

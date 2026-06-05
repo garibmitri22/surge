@@ -10,29 +10,38 @@ export type Database = {
   public: {
     Tables: {
       companies: {
+        // Onboarding v2: a DRAFT row is created when intake starts, so the form
+        // fields + completed_at are nullable until Atlas fills them. onboarding_complete
+        // is the real completion gate (not row-existence).
         Row: {
           id: string;
           user_id: string | null;
-          company_name: string;
-          industry: string;
-          target_customers: string;
-          brand_tone: string;
-          main_goal: string;
-          competitors: string;
-          employee_count: string;
-          completed_at: string;
+          company_name: string | null;
+          industry: string | null;
+          target_customers: string | null;
+          brand_tone: string | null;
+          main_goal: string | null;
+          competitors: string | null;
+          employee_count: string | null;
+          completed_at: string | null;
+          onboarding_complete: boolean;
+          created_at: string;
+          research_findings: unknown | null;
         };
         Insert: {
           id?: string;
           user_id: string;
-          company_name: string;
-          industry: string;
-          target_customers: string;
-          brand_tone: string;
-          main_goal: string;
-          competitors: string;
-          employee_count: string;
-          completed_at: string;
+          company_name?: string | null;
+          industry?: string | null;
+          target_customers?: string | null;
+          brand_tone?: string | null;
+          main_goal?: string | null;
+          competitors?: string | null;
+          employee_count?: string | null;
+          completed_at?: string | null;
+          onboarding_complete?: boolean;
+          created_at?: string;
+          research_findings?: unknown | null;
         };
         Update: Partial<Database['public']['Tables']['companies']['Insert']>;
         Relationships: [];
