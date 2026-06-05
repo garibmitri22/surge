@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getEmployees, getActivity, getTasks, getWorkforceStats, getWorkforceScore, getCompanyProfile, type WorkforceStats, type WorkforceScore } from '@/lib/data';
 import type { Employee, ActivityItem, Task } from '@/lib/mockData';
@@ -65,6 +65,28 @@ export default function Dashboard() {
     const t = setInterval(() => setTickIndex(i => (i + 1) % activityLog.length), 3500);
     return () => clearInterval(t);
   }, [activityLog.length]);
+
+  // Proactive heartbeat: once a day, when the owner opens the app, run the Lead
+  // Lifeline sweep (overdue -> recovery task, dead leads recycled). If it changed
+  // anything, refresh the surfaces that show it. Idempotent server-side too.
+  const sweptRef = useRef(false);
+  useEffect(() => {
+    if (sweptRef.current) return;
+    sweptRef.current = true;
+    const key = `surge-heartbeat-${new Date().toISOString().slice(0, 10)}`;
+    if (typeof window === 'undefined' || localStorage.getItem(key)) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/heartbeat', { method: 'POST' });
+        const r = await res.json().catch(() => ({}));
+        localStorage.setItem(key, '1');
+        if (r && (r.taskCreated || r.recycleCount)) {
+          const [acts, tks, sc] = await Promise.all([getActivity(), getTasks(), getWorkforceScore()]);
+          setActivityLog(acts); setTasks(tks); setScore(sc);
+        }
+      } catch { /* heartbeat is best-effort */ }
+    })();
+  }, []);
 
   // Every card reads a REAL count — zero stays zero, never a fabricated number.
   const statCards = [
