@@ -8,7 +8,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 // pages; /api/unsubscribe must be reachable by email RECIPIENTS (always anonymous).
 // /api/cron/* authenticates via CRON_SECRET (not a session), so the proxy must let
 // it through — otherwise the scheduler gets redirected to /login and never runs.
-const PUBLIC_PATHS = ['/login', '/signup', '/landing', '/legal', '/api/unsubscribe', '/auth/confirm', '/api/cron'];
+// PWA assets (manifest, service worker, offline page, icons) must be public too, so
+// they load on the landing page and for logged-out visitors.
+const PUBLIC_PATHS = [
+  '/login', '/signup', '/landing', '/legal', '/api/unsubscribe', '/auth/confirm', '/api/cron',
+  '/manifest.webmanifest', '/sw.js', '/offline.html', '/icons', '/apple-icon', '/icon',
+];
 
 function isPublic(path: string): boolean {
   return PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + '/'));

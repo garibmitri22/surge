@@ -274,7 +274,7 @@ function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-5xl md:text-7xl font-semibold tracking-tight text-foreground text-balance"
+          className="text-4xl sm:text-5xl md:text-7xl font-semibold tracking-tight text-foreground text-balance"
         >
           Hire your AI workforce.
         </motion.h1>
@@ -357,7 +357,7 @@ function EmployeeCard({ employee, index }: { employee: Employee; index: number }
         </div>
       </div>
       <p className="text-sm text-muted-foreground mb-6">{employee.description}</p>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
         {employee.stats.map((stat) => (
           <div key={stat.label}>
             <p className="text-lg font-semibold text-foreground">{stat.value}</p>
