@@ -6,7 +6,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 // Routes reachable without being signed in. /legal/* are the public Terms/Privacy
 // pages; /api/unsubscribe must be reachable by email RECIPIENTS (always anonymous).
-const PUBLIC_PATHS = ['/login', '/signup', '/landing', '/legal', '/api/unsubscribe', '/auth/confirm'];
+// /api/cron/* authenticates via CRON_SECRET (not a session), so the proxy must let
+// it through — otherwise the scheduler gets redirected to /login and never runs.
+const PUBLIC_PATHS = ['/login', '/signup', '/landing', '/legal', '/api/unsubscribe', '/auth/confirm', '/api/cron'];
 
 function isPublic(path: string): boolean {
   return PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + '/'));
