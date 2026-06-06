@@ -1,14 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getLeads, getDrafts, type Lead, type LeadDraft } from '@/lib/leads';
+import { getLeads, getDrafts, getLeadMessages, callLeadNow, type Lead, type LeadDraft, type LeadMessage } from '@/lib/leads';
 
 const VERTICAL_LABEL: Record<string, string> = { med_spa: 'Med Spa', real_estate: 'Real Estate', gym: 'Gym', other: 'Other' };
 const STATUS_COLOR: Record<string, string> = {
-  new: '#9ca3af', qualified: '#6366f1', drafted: '#8b5cf6', contacted: '#0891b2',
+  new: '#9ca3af', inbound: '#0d9488', engaged: '#0891b2', qualified: '#6366f1', drafted: '#8b5cf6', contacted: '#0891b2',
   warm: '#ea580c', replied: '#16a34a', meeting: '#16a34a', disqualified: '#9ca3af', recycled: '#d97706',
 };
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+
+// Speed-to-lead: human time from capture → first outbound touch.
+function timeToFirstTouch(createdAt: string, firstTouchAt: string | null): string {
+  if (!firstTouchAt) return 'not yet';
+  const ms = new Date(firstTouchAt).getTime() - new Date(createdAt).getTime();
+  if (ms < 0) return '—';
+  if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
+  if (ms < 3_600_000) return `${Math.round(ms / 60_000)}m`;
+  return `${Math.round(ms / 3_600_000)}h`;
+}
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -17,6 +27,8 @@ export default function LeadsPage() {
   const [vFilter, setVFilter] = useState('all');
   const [sFilter, setSFilter] = useState('all');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [threads, setThreads] = useState<Record<string, LeadMessage[]>>({});
+  const [callMsg, setCallMsg] = useState<Record<string, string>>({});
 
   const [overdueCount, setOverdueCount] = useState(0);
   const [nowTs, setNowTs] = useState(0); // load-time clock; keeps Date.now() out of render
@@ -34,6 +46,22 @@ export default function LeadsPage() {
 
   const filtered = leads.filter((l) => (vFilter === 'all' || l.vertical === vFilter) && (sFilter === 'all' || l.status === sFilter));
   const warmCount = leads.filter((l) => ['warm', 'meeting'].includes(l.status)).length;
+  const inboundCount = leads.filter((l) => ['inbound', 'engaged'].includes(l.status)).length;
+
+  // Expand a lead; lazily load its SMS/call thread (inbound leads have one).
+  function toggle(id: string) {
+    const open = expanded === id;
+    setExpanded(open ? null : id);
+    if (!open && !threads[id]) {
+      getLeadMessages(id).then((m) => setThreads((prev) => ({ ...prev, [id]: m }))).catch(() => {});
+    }
+  }
+
+  async function call(id: string) {
+    setCallMsg((prev) => ({ ...prev, [id]: 'Calling your phone…' }));
+    const r = await callLeadNow(id);
+    setCallMsg((prev) => ({ ...prev, [id]: r.ok ? 'Calling your phone — pick up to connect.' : (r.message || 'Calling isn’t set up yet.') }));
+  }
 
   const [notes, setNotes] = useState<Record<string, string>>({});
   // Approve = consent to send. The server attempts delivery (warmup + CAN-SPAM +
@@ -64,6 +92,12 @@ export default function LeadsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
+          {inboundCount > 0 && (
+            <div style={{ background: '#0d948810', border: '1px solid #0d948840', borderRadius: '12px', padding: '12px 18px', textAlign: 'right' }}>
+              <p style={{ fontSize: '24px', fontWeight: '800', color: '#0d9488', fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{inboundCount}</p>
+              <p style={{ fontSize: '10px', color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '4px' }}>Inbound</p>
+            </div>
+          )}
           {warmCount > 0 && (
             <div style={{ background: '#ea580c10', border: '1px solid #ea580c40', borderRadius: '12px', padding: '12px 18px', textAlign: 'right' }}>
               <p style={{ fontSize: '24px', fontWeight: '800', color: '#ea580c', fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{warmCount}</p>
@@ -107,16 +141,17 @@ export default function LeadsPage() {
             return (
               <div key={l.id} style={{ borderBottom: '1px solid var(--border)', borderLeft: engaged ? '3px solid #ea580c' : '3px solid transparent', background: engaged ? '#ea580c08' : 'transparent' }}>
                 <div
-                  onClick={() => setExpanded(open ? null : l.id)}
+                  onClick={() => toggle(l.id)}
                   className="table-row"
                   style={{ display: 'grid', gridTemplateColumns: '1fr 110px 90px 110px 1.4fr', gap: '12px', padding: '14px 20px', alignItems: 'center', cursor: 'pointer' }}
                 >
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {l.businessName}
+                      {l.origin === 'inbound' && <span title={`Inbound · ${l.source || 'form'}`} style={{ marginLeft: '6px', fontSize: '9px', color: '#0d9488', background: '#0d948818', borderRadius: '5px', padding: '1px 5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Inbound</span>}
                       {l.clickCount > 0 && <span title={`Clicked ${l.clickCount}× · last ${fmtDate(l.firstClickedAt)}`} style={{ marginLeft: '6px', fontSize: '10px', color: '#ea580c', fontWeight: 700 }}>🔥 {l.clickCount}</span>}
                     </p>
-                    <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{l.location || '—'}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{l.origin === 'inbound' ? (l.phone || l.location || '—') : (l.location || '—')}</p>
                   </div>
                   <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{VERTICAL_LABEL[l.vertical] || l.vertical}</span>
                   <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)' }}>{l.score}</span>
@@ -152,6 +187,39 @@ export default function LeadsPage() {
                           <span style={{ fontSize: '11.5px', color: '#16a34a', background: '#16a34a12', border: '1px solid #16a34a30', borderRadius: '999px', padding: '4px 12px', fontWeight: 600 }}>
                             📅 Booked {fmtDate(l.bookedAt)}
                           </span>
+                        )}
+                      </div>
+                    )}
+
+                    {l.origin === 'inbound' && (
+                      <div style={{ marginTop: '14px', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px' }}>
+                        <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                          <div>
+                            <p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Consent</p>
+                            <p style={{ fontSize: '12px', color: l.consentAt ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
+                              {l.consentAt ? `${(l.consentChannels || []).join(', ') || 'none'} · ${fmtDate(l.consentAt)}` : 'No consent on file'}
+                            </p>
+                          </div>
+                          <div>
+                            <p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Time to first touch</p>
+                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>{timeToFirstTouch(l.createdAt, l.firstTouchAt)}</p>
+                          </div>
+                          <div style={{ marginLeft: 'auto' }}>
+                            <button onClick={() => call(l.id)} disabled={!l.phone} style={{ background: '#0d9488', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '12px', fontWeight: 700, cursor: l.phone ? 'pointer' : 'default' }}>📞 Call now</button>
+                          </div>
+                        </div>
+                        {callMsg[l.id] && <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '8px' }}>{callMsg[l.id]}</p>}
+                        {/* Conversation thread */}
+                        {(threads[l.id]?.length ?? 0) === 0 ? (
+                          <p style={{ fontSize: '12px', color: 'var(--text-dim)' }}>No messages yet{l.firstTouchAt ? '.' : ' — Aria responds the moment SMS is set up.'}</p>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {threads[l.id].map((m) => (
+                              <div key={m.id} style={{ alignSelf: m.direction === 'outbound' ? 'flex-end' : 'flex-start', maxWidth: '78%', background: m.direction === 'outbound' ? 'var(--accent)' : 'var(--surface)', color: m.direction === 'outbound' ? '#fff' : 'var(--text-primary)', border: m.direction === 'outbound' ? 'none' : '1px solid var(--border)', borderRadius: '12px', padding: '7px 11px', fontSize: '12.5px', lineHeight: 1.45 }}>
+                                {m.channel === 'call' ? `📞 ${m.body}` : m.body}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     )}

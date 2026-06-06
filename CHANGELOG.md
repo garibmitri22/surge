@@ -6,6 +6,50 @@ Newest first.
 
 ## 2026-06-06
 
+### Inbound capture + speed-to-lead (Phase 1 — the B2C/residential motion) (`prompts/inbound-speed-to-lead-prompt.md`)
+The SECOND motion: residential/consumer customers (gyms, realtors, roofers) win by
+answering inbound INSTANTLY, not cold outbound. Cold B2B (Aria's research+email) is
+untouched. **Consent is the spine — server-enforced, no send without a stored consent
+record (TCPA). is_internal never bypasses consent or 10DLC (legal, not billing).**
+- **Consent gate** (`lib/inbound.mjs` `canSendSms` / `deliverSms` — the single send
+  chokepoint): every SMS is gated on a consent record + the channel + 10DLC `registered`
+  + not-opted-out + Twilio configured, in that order. A no-consent or unregistered lead
+  is hard-blocked before any send/log/charge. STOP keywords → `sms_suppressions` + halt.
+- **Normalized endpoint** `app/api/inbound/lead` — every adapter feeds one handler;
+  secured by a per-company signed capture token (not open to the world). Creates the lead
+  via the anon-safe `create_inbound_lead` SECURITY-DEFINER RPC (origin='inbound',
+  consent + source stamped) and fires the speed-to-lead first text.
+  - **Adapter A — Surge-hosted form** (`app/capture/[token]`, built first): explicit TCPA
+    consent checkbox + the exact disclosure wording stored with timestamp + IP.
+  - **Adapters B/C — Meta + Google** (`app/api/inbound/meta`, `/google`): verification
+    handshake + documented TODO stubs, wired per-customer later.
+- **Two-way SMS** `app/api/inbound/sms` (Twilio webhook, signature-validated): logs the
+  reply, honors STOP, promotes inbound→engaged, and Aria writes the next line in the
+  company's brand voice (`lib/sms-responder.ts`, a consumer-facing brain distinct from the
+  owner-facing HQ chat) → reply through the gate. Twilio via REST/fetch, no SDK (`lib/twilio.mjs`).
+- **Owner-bridge call** `app/api/voice/connect` + `/call` + one-tap "Call now" on /leads:
+  Twilio rings the owner, "press 1 to connect", bridges to the lead. No AI voice in Phase 1.
+- **Metering**: a live conversation = 0.5h, debited ONCE per lead (idempotent via a
+  ledger marker), never on a failed/blocked send; owner↔Aria chat stays unlimited.
+- **Surfaces**: /leads tags inbound vs researched, sorts un-responded inbound to the top,
+  shows consent + channels + time-to-first-touch + the live SMS/call thread + one-tap Call.
+  Settings gets the capture-form link, owner phone, and 10DLC status. Score counts
+  inbound/engaged (`lib/score.mjs`, reused).
+- **No-ops cleanly** with Twilio/10DLC unset: leads are captured, sends queue + the UI
+  surfaces "finish SMS setup" — never sends illegally.
+- **Migration (PENDING — run AFTER warm_signal): `supabase/inbound_migration.sql`** —
+  extends leads (origin/consent/source/first_touch + 'inbound'/'engaged' statuses),
+  `lead_messages`, `sms_suppressions`, company telephony columns, `create_inbound_lead` RPC.
+- **Verify:** `scripts/verify-inbound.mjs` — no-consent hard block, 10DLC block, STOP
+  suppression, endpoint stamps consent+source, thread advances, conversation metered once
+  + never on a blocked send. Run it and report: `node scripts/verify-inbound.mjs`.
+- **Phase 3 (AI voice) documented only:** `prompts/phase3-ai-voice-notes.md`.
+- **Mitri's manual steps:** create Twilio account; complete 10DLC brand+campaign
+  registration (gating, ~days); provision number(s); set `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN`, messaging service SID, number + `SUPABASE_SERVICE_ROLE_KEY` in env;
+  set each company's `tendlc_status='registered'` once approved.
+- build / lint / tsc green.
+
 ### Nova's Studio — her surface, content engine (P1 only) (`prompts/nova-studio-prompt.md`)
 Nova (Marketing Director, green) now has a surface, the way Aria has /leads. P1: she
 generates on-brand marketing content from the shared company brain → owner approves/

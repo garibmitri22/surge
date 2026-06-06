@@ -396,10 +396,10 @@ export async function getWorkforceScore(): Promise<WorkforceScore> {
     tasksCompleted: tasks.filter((t) => t.status === 'completed').length,
     tasksOpen: tasks.filter((t) => t.status !== 'completed').length,
     leadsTotal: leads.length,
-    // 'warm' (clicked) counts as qualified-or-better; engaged (warm/booked) is the
-    // 2×-weighted buying signal fed into the pipeline component.
-    leadsQualified: leads.filter((l) => ['qualified', 'drafted', 'warm', 'meeting'].includes(l.status)).length,
-    leadsEngaged: leads.filter((l) => ['warm', 'meeting'].includes(l.status)).length,
+    // 'warm' (clicked) + 'inbound'/'engaged' (the B2C motion) count as qualified-or-
+    // better; engaged (warm/booked/replied-inbound) is the 2×-weighted buying signal.
+    leadsQualified: leads.filter((l) => ['qualified', 'drafted', 'warm', 'meeting', 'inbound', 'engaged'].includes(l.status)).length,
+    leadsEngaged: leads.filter((l) => ['warm', 'meeting', 'engaged'].includes(l.status)).length,
     recentWork: (recentLeads.count ?? 0) + (recentDrafts.count ?? 0),
   });
 }

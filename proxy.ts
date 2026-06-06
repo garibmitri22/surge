@@ -16,6 +16,9 @@ const PUBLIC_PATHS = [
   // Warm-signal: prospects (anonymous) hit the tracked-CTA redirect, the hosted
   // interest page, and its booking submit. All must be reachable without a session.
   '/api/r', '/book', '/api/book',
+  // Inbound / speed-to-lead: the hosted capture form, the normalized lead endpoint,
+  // the Twilio SMS + voice webhooks, and the ad-platform adapters — all anonymous.
+  '/capture', '/api/inbound', '/api/voice',
   '/manifest.webmanifest', '/sw.js', '/offline.html', '/icons', '/apple-icon', '/icon',
 ];
 

@@ -33,6 +33,10 @@ export type Database = {
           is_internal: boolean;
           booking_url: string | null;
           timezone: string | null;
+          twilio_number: string | null;
+          twilio_messaging_service_sid: string | null;
+          owner_phone: string | null;
+          tendlc_status: string;
         };
         Insert: {
           id?: string;
@@ -54,6 +58,10 @@ export type Database = {
           is_internal?: boolean;
           booking_url?: string | null;
           timezone?: string | null;
+          twilio_number?: string | null;
+          twilio_messaging_service_sid?: string | null;
+          owner_phone?: string | null;
+          tendlc_status?: string;
         };
         Update: Partial<Database['public']['Tables']['companies']['Insert']>;
         Relationships: [];
@@ -206,6 +214,13 @@ export type Database = {
           first_clicked_at: string | null;
           click_count: number;
           booked_at: string | null;
+          origin: string;
+          consent_text: string | null;
+          consent_at: string | null;
+          consent_ip: string | null;
+          consent_channels: string[] | null;
+          source: string | null;
+          first_touch_at: string | null;
         };
         Insert: {
           id?: string;
@@ -229,6 +244,13 @@ export type Database = {
           first_clicked_at?: string | null;
           click_count?: number;
           booked_at?: string | null;
+          origin?: string;
+          consent_text?: string | null;
+          consent_at?: string | null;
+          consent_ip?: string | null;
+          consent_channels?: string[] | null;
+          source?: string | null;
+          first_touch_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['leads']['Insert']>;
         Relationships: [];
@@ -382,6 +404,46 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['email_suppressions']['Insert']>;
         Relationships: [];
       };
+      lead_messages: {
+        Row: {
+          id: string;
+          company_id: string;
+          lead_id: string;
+          direction: string;
+          channel: string;
+          body: string | null;
+          twilio_sid: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          lead_id: string;
+          direction: string;
+          channel?: string;
+          body?: string | null;
+          twilio_sid?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['lead_messages']['Insert']>;
+        Relationships: [];
+      };
+      sms_suppressions: {
+        Row: {
+          company_id: string;
+          phone: string;
+          reason: string;
+          created_at: string;
+        };
+        Insert: {
+          company_id: string;
+          phone: string;
+          reason?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['sms_suppressions']['Insert']>;
+        Relationships: [];
+      };
       content_pieces: {
         Row: {
           id: string;
@@ -449,6 +511,10 @@ export type Database = {
       };
       register_booking: {
         Args: { p_lead: string; p_company: string; p_name: string; p_email: string; p_time_pref: string };
+        Returns: unknown;
+      };
+      create_inbound_lead: {
+        Args: { p_company: string; p_name: string; p_phone: string; p_email: string; p_consent_text: string; p_consent_channels: string[]; p_consent_ip: string; p_source: string };
         Returns: unknown;
       };
     };

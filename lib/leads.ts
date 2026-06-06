@@ -19,6 +19,22 @@ export interface Lead {
   clickCount: number;
   firstClickedAt: string | null;
   bookedAt: string | null;
+  // Inbound / speed-to-lead motion
+  origin: string;            // 'researched' (cold B2B) | 'inbound' (this motion)
+  phone: string | null;
+  consentChannels: string[] | null;
+  consentAt: string | null;
+  source: string | null;
+  firstTouchAt: string | null;
+  createdAt: string;
+}
+
+export interface LeadMessage {
+  id: string;
+  direction: 'inbound' | 'outbound';
+  channel: string;
+  body: string | null;
+  createdAt: string;
 }
 
 export interface LeadDraft {
@@ -53,11 +69,41 @@ export async function getLeads(): Promise<Lead[]> {
     clickCount: r.click_count ?? 0,
     firstClickedAt: r.first_clicked_at ?? null,
     bookedAt: r.booked_at ?? null,
+    origin: r.origin ?? 'researched',
+    phone: r.phone ?? null,
+    consentChannels: (r.consent_channels as string[] | null) ?? null,
+    consentAt: r.consent_at ?? null,
+    source: r.source ?? null,
+    firstTouchAt: r.first_touch_at ?? null,
+    createdAt: r.created_at,
   }));
-  // Engagement first: booked meetings, then warm (clicked), then everyone by score.
-  // The warm signal is the point of the pipeline — surface it at the top.
-  const rank = (s: string) => (s === 'meeting' ? 2 : s === 'warm' ? 1 : 0);
-  return mapped.sort((a, b) => rank(b.status) - rank(a.status) || b.score - a.score);
+  // Surface what needs a human NOW: un-responded inbound leads first (speed-to-lead),
+  // then booked meetings, engaged, and warm (clicked); everyone else by score. Within
+  // the time-sensitive tiers, freshest first.
+  const rank = (l: Lead) =>
+    l.origin === 'inbound' && !l.firstTouchAt ? 6 :
+    l.status === 'meeting' ? 5 : l.status === 'engaged' ? 4 : l.status === 'warm' ? 3 :
+    l.status === 'inbound' ? 2 : 0;
+  return mapped.sort((a, b) => {
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return rb - ra;
+    if (ra >= 2) return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(); // freshness
+    return b.score - a.score;
+  });
+}
+
+export async function getLeadMessages(leadId: string): Promise<LeadMessage[]> {
+  const companyId = await getMyCompanyId();
+  if (!companyId) return [];
+  const { data, error } = await supabase
+    .from('lead_messages').select('*').eq('company_id', companyId).eq('lead_id', leadId).order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ id: r.id, direction: r.direction as 'inbound' | 'outbound', channel: r.channel, body: r.body, createdAt: r.created_at }));
+}
+
+export async function callLeadNow(leadId: string): Promise<{ ok: boolean; reason?: string; message?: string }> {
+  const res = await fetch('/api/voice/call', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leadId }) });
+  try { return await res.json(); } catch { return { ok: false, reason: `HTTP ${res.status}` }; }
 }
 
 export async function getDrafts(): Promise<LeadDraft[]> {

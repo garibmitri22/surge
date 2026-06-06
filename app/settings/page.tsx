@@ -15,6 +15,11 @@ export default function SettingsPage() {
   const [addrState, setAddrState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [bookingUrl, setBookingUrl] = useState('');
   const [bookingState, setBookingState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [ownerPhone, setOwnerPhone] = useState('');
+  const [phoneState, setPhoneState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [tendlc, setTendlc] = useState('none');
+  const [captureUrl, setCaptureUrl] = useState('');
+  const [copiedCapture, setCopiedCapture] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -23,10 +28,13 @@ export default function SettingsPage() {
       if (cancelled) return;
       setProfile(p); setHours(h); setCompanyId(id);
       if (id) {
-        const { data } = await supabase.from('companies').select('physical_address, booking_url').eq('id', id).maybeSingle();
+        const { data } = await supabase.from('companies').select('physical_address, booking_url, owner_phone, tendlc_status').eq('id', id).maybeSingle();
         if (cancelled) return;
         if (data?.physical_address) setAddress(data.physical_address);
         if (data?.booking_url) setBookingUrl(data.booking_url);
+        if (data?.owner_phone) setOwnerPhone(data.owner_phone);
+        if (data?.tendlc_status) setTendlc(data.tendlc_status);
+        try { const r = await fetch('/api/inbound/capture-link').then((x) => x.json()); if (!cancelled && r.ok) setCaptureUrl(r.url); } catch { /* ignore */ }
       }
     })();
     return () => { cancelled = true; };
@@ -46,6 +54,14 @@ export default function SettingsPage() {
     await supabase.from('companies').update({ booking_url: bookingUrl.trim() || null }).eq('id', companyId);
     setBookingState('saved');
     setTimeout(() => setBookingState('idle'), 2000);
+  }
+
+  async function saveOwnerPhone() {
+    if (!companyId) return;
+    setPhoneState('saving');
+    await supabase.from('companies').update({ owner_phone: ownerPhone.trim() || null }).eq('id', companyId);
+    setPhoneState('saved');
+    setTimeout(() => setPhoneState('idle'), 2000);
   }
 
   async function handleReset() {
@@ -189,6 +205,40 @@ export default function SettingsPage() {
               {bookingState === 'saving' ? 'Saving…' : bookingState === 'saved' ? 'Saved ✓' : 'Save link'}
             </button>
             {!bookingUrl.trim() && <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Using Surge&rsquo;s hosted interest page.</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Speed-to-Lead — inbound capture form + telephony (Phase 1) */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '20px' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Speed-to-Lead (Inbound)</h2>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Capture inbound leads and have Aria text them back instantly. Texting requires Twilio + 10DLC registration (carrier/legal requirement).</p>
+        </div>
+        <div style={{ padding: '20px 24px' }}>
+          {/* Capture link */}
+          <p style={{ fontSize: '11px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Your capture form link</p>
+          {captureUrl ? (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '18px' }}>
+              <input readOnly value={captureUrl} style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '9px 12px', fontSize: '12px', color: 'var(--text-secondary)', outline: 'none' }} />
+              <button onClick={() => { navigator.clipboard?.writeText(captureUrl); setCopiedCapture(true); setTimeout(() => setCopiedCapture(false), 1500); }} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '9px 14px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>{copiedCapture ? 'Copied ✓' : 'Copy'}</button>
+            </div>
+          ) : <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginBottom: '18px' }}>Generating…</p>}
+
+          {/* Owner phone for one-tap Call */}
+          <p style={{ fontSize: '11px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Your phone (for one-tap Call)</p>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '18px' }}>
+            <input value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} placeholder="+1 555 555 5555" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '9px 12px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none' }} />
+            <button onClick={saveOwnerPhone} disabled={phoneState === 'saving'} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 16px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>{phoneState === 'saving' ? 'Saving…' : phoneState === 'saved' ? 'Saved ✓' : 'Save'}</button>
+          </div>
+
+          {/* 10DLC status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>SMS sending status:</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'capitalize', color: tendlc === 'registered' ? 'var(--green)' : 'var(--amber)', background: tendlc === 'registered' ? '#16a34a18' : '#f59e0b18', borderRadius: '999px', padding: '3px 10px' }}>
+              {tendlc === 'registered' ? 'Registered — Aria can text' : tendlc === 'pending' ? '10DLC pending' : 'Not set up'}
+            </span>
+            {tendlc !== 'registered' && <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>Leads are captured now; texting turns on once 10DLC is registered.</span>}
           </div>
         </div>
       </div>
