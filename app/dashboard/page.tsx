@@ -7,6 +7,7 @@ import type { Employee, ActivityItem, Task } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { AtlasBrief } from '@/components/AtlasBrief';
 import { HoursWidget } from '@/components/HoursWidget';
+import { DEPARTMENTS } from '@/lib/departments.mjs';
 
 const empColors: Record<string, string> = { aria: '#a78bfa', nova: '#34d399', opus: '#60a5fa', atlas: '#f59e0b' };
 
@@ -128,7 +129,7 @@ export default function Dashboard() {
             now.
           </p>
         </div>
-        <button onClick={() => router.push('/workforce')} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 20px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        <button onClick={() => router.push('/hire')} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 20px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
           + Hire Employee
         </button>
       </div>
@@ -256,28 +257,37 @@ export default function Dashboard() {
         {/* Workforce Status */}
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Workforce</p>
+            <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your Company</p>
             <button onClick={() => router.push('/workforce')} style={{ fontSize: '11px', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>View all →</button>
           </div>
-          {employees.map(e => (
-            <div key={e.id} onClick={() => router.push(`/workforce/${e.id}`)} style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, border: `1px solid ${e.color}20` }}><EmployeeAvatar id={e.id} size={36} /></div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{e.name}</span>
-                  <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>{e.role}</span>
-                </div>
-                {empDesc[e.id] && <p style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.45, marginBottom: '3px' }}>{empDesc[e.id]}</p>}
-                <p style={{ fontSize: '11px', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  <span style={{ fontWeight: 600 }}>Working on:</span> {(empStats[e.id] ?? emptyEmployeeStat()).currentTask}
-                </p>
+          {DEPARTMENTS.map(dept => {
+            const members = dept.employeeIds.map(id => employees.find(e => e.id === id)).filter(Boolean) as Employee[];
+            if (members.length === 0) return null;
+            return (
+              <div key={dept.id}>
+                <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '10px 20px 4px', background: 'var(--bg)' }}>{dept.name}</p>
+                {members.map(e => (
+                  <div key={e.id} onClick={() => router.push(`/workforce/${e.id}`)} style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: '14px', cursor: 'pointer' }}>
+                    <div style={{ width: '34px', height: '34px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, border: `1px solid ${e.color}20` }}><EmployeeAvatar id={e.id} size={34} /></div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{e.name}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>{e.role}</span>
+                      </div>
+                      {empDesc[e.id] && <p style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.45, marginBottom: '3px' }}>{empDesc[e.id]}</p>}
+                      <p style={{ fontSize: '11px', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontWeight: 600 }}>Working on:</span> {(empStats[e.id] ?? emptyEmployeeStat()).currentTask}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, marginTop: '2px' }}>
+                      <div className={`status-${e.status}`} style={{ width: '7px', height: '7px', borderRadius: '50%' }} />
+                      <span style={{ fontSize: '10px', color: e.status === 'active' ? 'var(--green)' : e.status === 'idle' ? 'var(--amber)' : 'var(--text-dim)', textTransform: 'capitalize' }}>{e.status}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, alignSelf: 'flex-start', marginTop: '2px' }}>
-                <div className={`status-${e.status}`} style={{ width: '7px', height: '7px', borderRadius: '50%' }} />
-                <span style={{ fontSize: '10px', color: e.status === 'active' ? 'var(--green)' : e.status === 'idle' ? 'var(--amber)' : 'var(--text-dim)', textTransform: 'capitalize' }}>{e.status}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Activity Feed — real, honest empty state */}

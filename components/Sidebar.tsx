@@ -77,7 +77,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div style={{ padding: '0 12px 12px' }}>
-        <Link href="/workforce" onClick={onNavigate} style={{ textDecoration: 'none' }}>
+        <Link href="/hire" onClick={onNavigate} style={{ textDecoration: 'none' }}>
           <div style={{ background: 'var(--accent-dim)', border: '1px solid #6366f120', borderRadius: '10px', padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px', color: 'var(--accent)' }}>+</span>
             <div>

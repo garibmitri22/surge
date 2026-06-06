@@ -37,6 +37,7 @@ export type Database = {
           twilio_messaging_service_sid: string | null;
           owner_phone: string | null;
           tendlc_status: string;
+          hired_employees: string[];
         };
         Insert: {
           id?: string;
@@ -62,6 +63,7 @@ export type Database = {
           twilio_messaging_service_sid?: string | null;
           owner_phone?: string | null;
           tendlc_status?: string;
+          hired_employees?: string[];
         };
         Update: Partial<Database['public']['Tables']['companies']['Insert']>;
         Relationships: [];
@@ -448,6 +450,12 @@ export type Database = {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['sms_suppressions']['Insert']>;
+        Relationships: [];
+      };
+      waitlist_signups: {
+        Row: { company_id: string; role_id: string; created_at: string };
+        Insert: { company_id: string; role_id: string; created_at?: string };
+        Update: Partial<Database['public']['Tables']['waitlist_signups']['Insert']>;
         Relationships: [];
       };
       content_pieces: {

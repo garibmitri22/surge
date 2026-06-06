@@ -6,6 +6,26 @@ Newest first.
 
 ## 2026-06-06
 
+### Hire-an-employee + Department experience (clarity + expansion + upsell) (`prompts/hire-department-experience-prompt.md`)
+Makes Surge feel like running a company, and "Hire" feel like staffing one.
+- **Departments** (`lib/departments.mjs`, data-driven): the workforce groups into
+  **Leadership** (Atlas) → **Sales** (Aria) → **Marketing** (Nova) → **Operations** (Opus).
+  `/workforce` ("Your Company") and the dashboard roster both render by department, each
+  card carrying the what-they-do + "Working on: …" copy. Adding role #5/#10 is just data.
+- **Hire catalog** (`/hire`): organized by department — **active** roles (Hire, with a
+  celebratory state), honestly-labeled **Coming soon** roles (Account Executive, Content
+  Writer, SEO Specialist, Project Manager), and the **pipeline** employees (Rex/Clara/
+  Evan/Piper/Finn) as **Join waitlist** (the visible expansion path). No fake rosters.
+- **Wiring:** `/api/hire` enables an active employee (adds to `companies.hired_employees`)
+  with the **Stripe entitlement seam** marked in place (`isEmployeeEnabled` — internal/owner
+  free until billing; single = chosen employee, team = all). `/api/hire/waitlist` captures
+  pipeline demand (idempotent). All "Hire Employee" entry points now open `/hire`.
+- **Organic upsell:** Atlas's prompt gains ONE calm-line nudge — when a need falls in an
+  unstaffed lane, he offers to bring that teammate on, linking to Hire (never pushy).
+- **Migration (PENDING — Cowork to run): `supabase/hiring_migration.sql`** — adds
+  `companies.hired_employees` + `waitlist_signups`.
+- build / lint / tsc green.
+
 ### Database reactivation — wake up the owner's existing list (`prompts/database-reactivation-prompt.md`)
 The fastest, lowest-risk "wow" + the lead demo for the Managed Growth Engine: point Aria
 at a business's OWN past customers + unclosed quotes and rebook them — revenue with no ad
