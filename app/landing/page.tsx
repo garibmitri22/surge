@@ -4,7 +4,7 @@ import { motion, useInView } from "framer-motion";
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { UserPlus, MessageSquare, Zap, Check, ChevronDown } from "lucide-react";
+import { UserPlus, MessageSquare, Zap, Check, ChevronDown, Menu, X } from "lucide-react";
 import { SINGLE_LABEL, TEAM_LABEL, ALLOWANCES, HOUR_PRICES } from "@/lib/pricing.mjs";
 
 // Plain-English "about N runs" derived from the hour math (no overpromising).
@@ -186,7 +186,14 @@ const faqs = [
 // HEADER
 // ============================================================================
 
+const NAV_LINKS: [string, string][] = [
+  ["#team", "Team"],
+  ["#pricing", "Pricing"],
+  ["#faq", "FAQ"],
+];
+
 function Header() {
+  const [open, setOpen] = useState(false);
   return (
     <motion.header
       initial={{ opacity: 0, y: -10 }}
@@ -198,25 +205,59 @@ function Header() {
         <Link href="/landing" className="text-xl font-semibold text-foreground tracking-tight">
           Surge
         </Link>
-        <nav className="hidden md:flex items-center gap-8">
-          <a href="#team" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Team
-          </a>
-          <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Pricing
-          </a>
-          <a href="#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            FAQ
-          </a>
-        </nav>
-        <Button
-          asChild
-          size="sm"
-          className="bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+
+        {/* Desktop nav + CTA */}
+        <div className="hidden md:flex items-center gap-8">
+          <nav className="flex items-center gap-8">
+            {NAV_LINKS.map(([href, label]) => (
+              <a key={href} href={href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                {label}
+              </a>
+            ))}
+          </nav>
+          <Button
+            asChild
+            size="sm"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Link href="/signup">Get started</Link>
+          </Button>
+        </div>
+
+        {/* Mobile hamburger (44px tap target) */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
+          className="md:hidden inline-flex items-center justify-center h-11 w-11 -mr-2 rounded-lg text-foreground hover:bg-muted transition-colors"
         >
-          <Link href="/signup">Get started</Link>
-        </Button>
+          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
       </div>
+
+      {/* Mobile menu panel */}
+      {open && (
+        <nav className="md:hidden border-t border-border bg-background/95 backdrop-blur-lg px-6 pb-4 pt-1">
+          {NAV_LINKS.map(([href, label]) => (
+            <a
+              key={href}
+              href={href}
+              onClick={() => setOpen(false)}
+              className="block py-3 text-base text-foreground hover:text-primary transition-colors"
+            >
+              {label}
+            </a>
+          ))}
+          <Link
+            href="/signup"
+            onClick={() => setOpen(false)}
+            className="block mt-2 text-center bg-primary text-primary-foreground rounded-lg py-3 text-base font-medium hover:bg-primary/90 transition-colors"
+          >
+            Get started
+          </Link>
+        </nav>
+      )}
     </motion.header>
   );
 }
