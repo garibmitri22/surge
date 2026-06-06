@@ -6,6 +6,28 @@ Newest first.
 
 ## 2026-06-06
 
+### Landing desktop — content shifted left + clipped (real root cause: unlayered reset)
+The desktop landing was shifted left with the left edge clipped and no side gutters —
+`mx-auto` containers weren't centering and `px-6` produced no padding. Root cause: the
+global reset `* { margin:0; padding:0 }` in `app/globals.css` was **unlayered**, and in
+Tailwind v4 unlayered CSS beats `@layer utilities` regardless of specificity — so it
+silently zeroed every Tailwind margin/padding utility on the landing (the inline-styled
+app pages were unaffected). My earlier `overflowX:'clip'` band-aid (a2a440f) hid the
+scrollbar but not the miscentering.
+- **Fix:** moved the reset into `@layer base` so utilities win again — `mx-auto` centers,
+  `px-6` gutters return, vertical rhythm restored, app-wide and corrective (inline styles
+  still win; shadcn components get their padding back too).
+- **Overflow cleanup:** the score section's framer-motion entrances used x-offsets
+  (`initial x:-30 / x:+30`) that widened the page off-axis — switched to `y`/opacity
+  (matching every other section). **Removed the `overflowX:'clip'` band-aid** from
+  `<main>`; the real fix stands on its own.
+- **Verified (live, measured):** at 1440 + 1280 every `max-w-*` container centers with
+  equal gutters (142px / 62px), 0 elements past the viewport, no horizontal scroll;
+  mobile 375 unchanged (no overflow, gutters + hamburger intact, `px-6` now correct).
+  build / lint / tsc green. (Faithful desktop screenshots aren't possible in this
+  environment — the preview tool renders ~290px + redirects, no Chrome connected — so
+  verification is geometry/computed-style measurement, which pinpoints centering exactly.)
+
 ### Vertical packs — selectable onboarding template (`verticals/home-services-pack.md`)
 Onboarding opens with "What kind of business?" — picking a vertical prefills the company
 brain so intake is confirm-not-fill, and Atlas continues from there. Editable starting

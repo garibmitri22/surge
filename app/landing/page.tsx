@@ -534,8 +534,8 @@ function PerformanceScore() {
       <div className="max-w-6xl mx-auto">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
@@ -560,8 +560,8 @@ function PerformanceScore() {
             </ul>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
             className="flex justify-center"
@@ -860,7 +860,7 @@ function Footer() {
 
 export default function Page() {
   return (
-    <main className="min-h-screen bg-background" style={{ overflowX: 'clip' }}>
+    <main className="min-h-screen bg-background">
       <Header />
       <div className="pt-16">
         <Hero />

@@ -20,10 +20,16 @@
   --font-mono: var(--font-geist-mono);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* Reset lives in @layer base so it sits BELOW Tailwind's utilities layer. Unlayered,
+   it would beat layered utilities (Tailwind v4: unlayered CSS wins over @layer rules
+   regardless of specificity) and silently kill mx-auto / px-* / spacing on the landing
+   page. The inline-styled app pages are unaffected (inline styles win over everything). */
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 html, body {
