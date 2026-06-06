@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getEmployees, getActivity, getTasks, getWorkforceStats, getWorkforceScore, getEmployeeStats, emptyEmployeeStat, getCompanyProfile, getUserDisplay, type WorkforceStats, type WorkforceScore, type EmployeeStat } from '@/lib/data';
+import { getEmployees, getActivity, getTasks, getWorkforceStats, getWorkforceScore, getEmployeeStats, emptyEmployeeStat, getCompanyProfile, getUserDisplay, getAvgDealValue, type WorkforceStats, type WorkforceScore, type EmployeeStat } from '@/lib/data';
 import type { Employee, ActivityItem, Task } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { AtlasBrief } from '@/components/AtlasBrief';
 import { HoursWidget } from '@/components/HoursWidget';
 import { DEPARTMENTS } from '@/lib/departments.mjs';
+import { estimatePipeline } from '@/lib/briefing.mjs';
 
 const empColors: Record<string, string> = { aria: '#a78bfa', nova: '#34d399', opus: '#60a5fa', atlas: '#f59e0b' };
 
@@ -55,12 +56,13 @@ export default function Dashboard() {
   const [stats, setStats] = useState<WorkforceStats | null>(null);
   const [score, setScore] = useState<WorkforceScore | null>(null);
   const [empStats, setEmpStats] = useState<Record<string, EmployeeStat>>({});
+  const [avgDeal, setAvgDeal] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [emps, acts, tks, ws, sc, es, profile, who] = await Promise.all([
-        getEmployees(), getActivity(), getTasks(), getWorkforceStats(), getWorkforceScore(), getEmployeeStats(), getCompanyProfile(), getUserDisplay(),
+      const [emps, acts, tks, ws, sc, es, profile, who, adv] = await Promise.all([
+        getEmployees(), getActivity(), getTasks(), getWorkforceStats(), getWorkforceScore(), getEmployeeStats(), getCompanyProfile(), getUserDisplay(), getAvgDealValue(),
       ]);
       if (cancelled) return;
       setEmployees(emps);
@@ -70,6 +72,7 @@ export default function Dashboard() {
       setScore(sc);
       setEmpStats(es);
       setUserFirst(who.firstName);
+      setAvgDeal(adv);
       if (profile?.companyName) setCompanyName(profile.companyName);
     })();
     return () => { cancelled = true; };
@@ -134,20 +137,45 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Results — the hero. Real, verifiable counts (never invented $/ROI). */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }} className="results-hero">
-        {[
-          { label: 'Leads Found', value: stats?.leadsFound ?? 0, color: '#ec4899' },
-          { label: 'Qualified', value: stats?.qualifiedLeads ?? 0, color: '#a78bfa' },
-          { label: 'Outreach Drafted', value: stats?.pendingDrafts ?? 0, color: '#f59e0b' },
-          { label: 'Meetings Booked', value: stats?.meetingsBooked ?? 0, color: '#60a5fa' },
-        ].map(s => (
-          <div key={s.label} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: 'var(--shadow)', padding: '18px 20px' }}>
-            <p style={{ fontSize: '34px', fontWeight: '800', color: s.value === 0 ? 'var(--text-dim)' : s.color, fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{s.value}</p>
-            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '8px', fontWeight: 600 }}>{s.label}</p>
+      {/* TEAM GENERATED — the hero. Real, verifiable counts + an HONEST money figure
+          (Estimated Potential Pipeline = pipeline leads × the owner's own avg deal value,
+          formula shown on hover; hidden entirely until avg deal value is set). */}
+      {(() => {
+        const pipelineLeads = stats?.pipelineLeads ?? 0;
+        const potential = estimatePipeline(pipelineLeads, avgDeal);
+        const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US');
+        return (
+          <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderLeft: '3px solid var(--accent)', borderRadius: '16px', boxShadow: 'var(--shadow)', padding: '18px 22px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+              <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Team Generated</p>
+              {potential != null ? (
+                <span title={`${pipelineLeads} qualified + warm × ${money(avgDeal!)} avg deal value`} style={{ fontSize: '13px', color: 'var(--text-secondary)', cursor: 'help' }}>
+                  Estimated potential pipeline{' '}
+                  <strong style={{ color: 'var(--green)', fontFamily: 'var(--font-geist-mono)' }}>{money(potential)}</strong>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}> · estimated</span>
+                </span>
+              ) : (
+                <button onClick={() => router.push('/settings')} style={{ fontSize: '12px', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                  Set your average deal value → see estimated pipeline
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }} className="results-hero">
+              {[
+                { label: 'Leads Found', value: stats?.leadsFound ?? 0, color: '#ec4899' },
+                { label: 'Qualified', value: stats?.qualifiedLeads ?? 0, color: '#a78bfa' },
+                { label: 'Outreach Sent', value: stats?.outreachSent ?? 0, color: '#f59e0b' },
+                { label: 'Meetings Booked', value: stats?.meetingsBooked ?? 0, color: '#60a5fa' },
+              ].map(s => (
+                <div key={s.label} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '16px 18px' }}>
+                  <p style={{ fontSize: '32px', fontWeight: '800', color: s.value === 0 ? 'var(--text-dim)' : s.color, fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{s.value}</p>
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '8px', fontWeight: 600 }}>{s.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-      </div>
+        );
+      })()}
 
       {/* Atlas — Chief of Staff: the dashboard centerpiece (brief + his input) */}
       <AtlasBrief />

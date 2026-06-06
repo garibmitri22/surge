@@ -23,6 +23,7 @@ export function AtlasBrief() {
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const started = useRef(false);
 
@@ -101,13 +102,10 @@ export function AtlasBrief() {
 
   return (
     <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderLeft: `3px solid ${ATLAS_COLOR}`, borderRadius: '16px', boxShadow: 'var(--shadow)', padding: '20px 22px', marginBottom: '20px' }}>
-      {/* Living presence — the centerpiece. Orb above, input below, orb reacts. */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
-        <PresenceOrb employeeId="atlas" state={orbState} size={128} aria-label="Atlas presence" />
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-        <div style={{ width: '40px', height: '40px', borderRadius: '11px', overflow: 'hidden', flexShrink: 0 }}>
-          <EmployeeAvatar id="atlas" size={40} />
+      {/* Compact header — orb inline (kept, smaller), brief collapses so it doesn't eat the screen. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: collapsed ? '0' : '12px' }}>
+        <div style={{ flexShrink: 0 }}>
+          <PresenceOrb employeeId="atlas" state={orbState} size={52} aria-label="Atlas presence" />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -116,6 +114,13 @@ export function AtlasBrief() {
           </div>
           <p style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Your morning brief &amp; command center</p>
         </div>
+        <button
+          onClick={() => setCollapsed((v) => !v)}
+          title={collapsed ? 'Show the briefing' : 'Collapse the briefing'}
+          style={{ flexShrink: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '7px 11px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          {collapsed ? 'Show brief' : 'Hide'}
+        </button>
         <button
           onClick={() => stream(BRIEF_ASK, { brief: true })}
           disabled={streaming}
@@ -126,8 +131,9 @@ export function AtlasBrief() {
         </button>
       </div>
 
-      {/* Inline conversation — brief + any back-and-forth, all on the dashboard */}
-      <div ref={scrollRef} style={{ maxHeight: '420px', overflowY: 'auto', marginBottom: '14px' }}>
+      {/* Inline conversation — collapses to keep the card tight; capped height when open. */}
+      {!collapsed && (
+      <div ref={scrollRef} style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '14px', marginTop: '12px' }}>
         {empty ? (
           <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>Ask Atlas to brief you, or give him something to run.</p>
         ) : (
@@ -159,6 +165,7 @@ export function AtlasBrief() {
           </div>
         )}
       </div>
+      )}
 
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
         <input

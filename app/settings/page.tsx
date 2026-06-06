@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCompanyProfile, resetOnboarding, getHoursSummary, getMyCompanyId, type CompanyProfile, type HoursSummary } from '@/lib/data';
+import { getCompanyProfile, resetOnboarding, getHoursSummary, getMyCompanyId, getAvgDealValue, setAvgDealValue, type CompanyProfile, type HoursSummary } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { SINGLE_LABEL, TEAM_LABEL, formatHours } from '@/lib/pricing.mjs';
 
@@ -19,6 +19,8 @@ export default function SettingsPage() {
   const [phoneState, setPhoneState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [fullName, setFullName] = useState('');
   const [nameState, setNameState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [avgDeal, setAvgDeal] = useState('');
+  const [avgDealState, setAvgDealState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [tendlc, setTendlc] = useState('none');
   const [captureUrl, setCaptureUrl] = useState('');
   const [copiedCapture, setCopiedCapture] = useState(false);
@@ -30,6 +32,7 @@ export default function SettingsPage() {
       if (cancelled) return;
       setProfile(p); setHours(h); setCompanyId(id);
       try { const { data: { user } } = await supabase.auth.getUser(); if (!cancelled) setFullName(String(user?.user_metadata?.full_name || user?.user_metadata?.name || '')); } catch { /* ignore */ }
+      try { const v = await getAvgDealValue(); if (!cancelled && v) setAvgDeal(String(v)); } catch { /* ignore */ }
       if (id) {
         const { data } = await supabase.from('companies').select('physical_address, booking_url, owner_phone, tendlc_status').eq('id', id).maybeSingle();
         if (cancelled) return;
@@ -57,6 +60,14 @@ export default function SettingsPage() {
     await supabase.from('companies').update({ booking_url: bookingUrl.trim() || null }).eq('id', companyId);
     setBookingState('saved');
     setTimeout(() => setBookingState('idle'), 2000);
+  }
+
+  async function saveAvgDeal() {
+    setAvgDealState('saving');
+    const n = parseFloat(avgDeal.replace(/[^0-9.]/g, ''));
+    await setAvgDealValue(Number.isFinite(n) && n > 0 ? n : null);
+    setAvgDealState('saved');
+    setTimeout(() => setAvgDealState('idle'), 2000);
   }
 
   async function saveName() {
@@ -119,6 +130,21 @@ export default function SettingsPage() {
           <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Mitri" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '11px 14px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none' }} />
           <button onClick={saveName} disabled={nameState === 'saving'} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 18px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
             {nameState === 'saving' ? 'Saving…' : nameState === 'saved' ? 'Saved ✓' : 'Save'}
+          </button>
+        </div>
+      </div>
+
+      {/* Average deal value — powers the honest pipeline estimate (counts × this number) */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '20px' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Average deal / job value</h2>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Your typical revenue per closed customer. Turns real lead counts into an estimated pipeline figure on your dashboard — left blank, we show counts only (never a made-up number).</p>
+        </div>
+        <div style={{ padding: '20px 24px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <span style={{ fontSize: '15px', color: 'var(--text-dim)' }}>$</span>
+          <input value={avgDeal} onChange={(e) => setAvgDeal(e.target.value)} inputMode="numeric" placeholder="e.g. 15000" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '11px 14px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none' }} />
+          <button onClick={saveAvgDeal} disabled={avgDealState === 'saving'} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 18px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+            {avgDealState === 'saving' ? 'Saving…' : avgDealState === 'saved' ? 'Saved ✓' : 'Save'}
           </button>
         </div>
       </div>

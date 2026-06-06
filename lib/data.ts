@@ -264,6 +264,8 @@ export interface WorkforceStats {
   qualifiedLeads: number;
   pendingDrafts: number;
   meetingsBooked: number;
+  outreachSent: number;   // real emails sent (email_sends, status='sent')
+  pipelineLeads: number;  // qualified + warm — the leads behind the pipeline estimate
   activityCount: number;
   hasActivity: boolean;
 }
@@ -272,11 +274,12 @@ export async function getWorkforceStats(): Promise<WorkforceStats> {
   const companyId = await getMyCompanyId();
   const empty: WorkforceStats = {
     activeTasks: 0, completedTasks: 0, leadsFound: 0, qualifiedLeads: 0,
-    pendingDrafts: 0, meetingsBooked: 0, activityCount: 0, hasActivity: false,
+    pendingDrafts: 0, meetingsBooked: 0, outreachSent: 0, pipelineLeads: 0, activityCount: 0, hasActivity: false,
   };
   if (!companyId) return empty;
-  const [tasks, leads, drafts, activity] = await Promise.all([
+  const [tasks, leads, drafts, activity, sentRes] = await Promise.all([
     getTasks(), getLeads(), getDrafts(), getActivity(),
+    supabase.from('email_sends').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'sent'),
   ]);
   const activeTasks = tasks.filter(t => t.status === 'in_progress').length;
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
@@ -284,9 +287,11 @@ export async function getWorkforceStats(): Promise<WorkforceStats> {
   const qualifiedLeads = leads.filter(l => l.status === 'qualified').length;
   const pendingDrafts = drafts.filter(d => d.approvalStatus === 'pending').length;
   const meetingsBooked = leads.filter(l => l.status === 'meeting').length;
+  const outreachSent = sentRes.count ?? 0;
+  const pipelineLeads = leads.filter(l => ['qualified', 'warm'].includes(l.status)).length;
   const activityCount = activity.length;
   return {
-    activeTasks, completedTasks, leadsFound, qualifiedLeads, pendingDrafts, meetingsBooked, activityCount,
+    activeTasks, completedTasks, leadsFound, qualifiedLeads, pendingDrafts, meetingsBooked, outreachSent, pipelineLeads, activityCount,
     hasActivity: activeTasks + completedTasks + leadsFound + pendingDrafts + meetingsBooked + activityCount > 0,
   };
 }
@@ -296,6 +301,46 @@ export async function getWorkforceStats(): Promise<WorkforceStats> {
 // the greeting/briefing/sidebar so every user sees THEIR name (data was always
 // isolated; this was a display-only bug where everyone saw "Mitri").
 // ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// Average deal / job value — the ONLY input that turns real lead counts into an
+// honest money figure (Estimated Potential Pipeline). Stored as a singleton
+// memory_entry (type 'deal_value'); null when unset → the UI shows counts only and
+// never fabricates a dollar number.
+// ----------------------------------------------------------------------------
+export async function getAvgDealValue(): Promise<number | null> {
+  const companyId = await getMyCompanyId();
+  if (!companyId) return null;
+  const { data } = await supabase
+    .from('memory_entries').select('content').eq('company_id', companyId).eq('type', 'deal_value')
+    .order('sort_order', { ascending: false }).limit(1).maybeSingle();
+  const n = data?.content ? parseFloat(String(data.content).replace(/[^0-9.]/g, '')) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Set (or clear, with null/0) the average deal value — singleton memory_entry. */
+export async function setAvgDealValue(value: number | null): Promise<void> {
+  const companyId = await getMyCompanyId();
+  if (!companyId) throw new Error('No company');
+  const { data: rows } = await supabase
+    .from('memory_entries').select('id').eq('company_id', companyId).eq('type', 'deal_value').order('sort_order', { ascending: false });
+  const ids = (rows ?? []).map(r => r.id);
+  if (!value || value <= 0) {
+    if (ids.length) await supabase.from('memory_entries').delete().in('id', ids);
+    return;
+  }
+  const now = Date.now();
+  if (ids.length) {
+    await supabase.from('memory_entries').update({ content: String(value), updated_at: new Date().toISOString().slice(0, 10), sort_order: now }).eq('id', ids[0]);
+    if (ids.length > 1) await supabase.from('memory_entries').delete().in('id', ids.slice(1));
+  } else {
+    await supabase.from('memory_entries').insert({
+      id: 'm' + now + Math.floor(Math.random() * 1000),
+      company_id: companyId, type: 'deal_value', title: 'Average deal value', content: String(value),
+      tags: ['metric'], updated_at: new Date().toISOString().slice(0, 10), sort_order: now,
+    });
+  }
+}
+
 export async function getUserDisplay(): Promise<{ name: string; firstName: string; initial: string }> {
   const { data: { user } } = await supabase.auth.getUser();
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;

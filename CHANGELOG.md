@@ -28,6 +28,33 @@ scrollbar but not the miscentering.
   environment — the preview tool renders ~290px + redirects, no Chrome connected — so
   verification is geometry/computed-style measurement, which pinpoints centering exactly.)
 
+### Outcomes-first pass — show the money (honestly), demote the plumbing
+2nd buyer review (8.3/10): product showed activity/agents; buyer wants outcomes/results.
+Flipped it, under a hard honesty rule — every number real or a transparently-computed
+estimate; the ONLY money figure is Estimated Potential Pipeline.
+- **Avg deal value capture** (`data.ts` `getAvgDealValue`/`setAvgDealValue`, singleton
+  `memory_entries` type `deal_value`): editable in Settings ("Average deal / job value").
+  Powers the honest math; unset → counts only, never a fabricated dollar.
+- **One shared, testable money helper** `estimatePipeline(pipelineLeads, avgDealValue)`
+  (`lib/briefing.mjs`) = (qualified + warm) × avg deal value, **null when unset**. Used by
+  BOTH the dashboard hero and the briefing email — single source.
+- **Results-first dashboard hero**: a "Team Generated" card at the top (above the roster)
+  with real counts from `getWorkforceStats` (Leads Found / Qualified / Outreach **Sent** /
+  Meetings Booked) + **Estimated Potential Pipeline** $ with the formula on hover
+  ("N qualified+warm × $avg"); when avg deal value is unset it shows counts + a "set it"
+  prompt, never a number. `getWorkforceStats` gained `outreachSent` (real email_sends) +
+  `pipelineLeads` (qualified+warm).
+- **Compact Atlas card**: orb kept but inline + smaller; the briefing collapses (Hide/Show)
+  and is height-capped — no longer eats half the screen.
+- **Tasks page compressed**: short derived row title (`shortTitle`) + tap-to-expand for the
+  full title + project/owner/priority/due. Reads like SaaS, not a database.
+- **Weekly briefing email** now leads with the estimated pipeline + outcome counts; the
+  Workforce Score is demoted to a small "workforce health" line.
+- **Honesty enforced**: no hardcoded dollar figures (money is always built as `'$' + n`).
+- **Verify:** `scripts/verify-outcomes.mjs` — pipeline math, hidden-when-unset, $0-honest,
+  shared source, and a grep proving no `$<number>` literals in the outcome surfaces. Green.
+- build / lint / tsc green. No migration (avg deal value is a memory_entries field).
+
 ### Vertical pack #2 — Med Spa / Aesthetics
 Proves the vertical-pack design end to end: added `lib/verticals/med-spas.ts` + one line
 in the registry — **no new code, no migration**. The med-spa brain (ICP = readiness-to-book

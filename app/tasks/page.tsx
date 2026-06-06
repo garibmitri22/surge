@@ -23,6 +23,7 @@ export default function TasksPage() {
   const [running, setRunning] = useState<string | null>(null);
   const [runNote, setRunNote] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'queued' | 'in_progress' | 'completed'>('all');
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ title: '', assigneeId: '', priority: 'medium' as Task['priority'], project: '', dueDate: '' });
 
@@ -151,12 +152,14 @@ export default function TasksPage() {
           <p style={{ padding: '40px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '13px' }}>No tasks here.</p>
         ) : filtered.map((t, i) => {
           const emp = employees.find(e => e.id === t.assigneeId);
+          const open = expanded === t.id;
           return (
-            <div key={t.id} style={{ display: 'grid', gridTemplateColumns: '2fr 110px 90px 90px 100px 60px 84px', gap: '12px', padding: '14px 20px', borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center', opacity: t.status === 'completed' ? 0.6 : 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div key={t.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', opacity: t.status === 'completed' ? 0.6 : 1 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 110px 90px 90px 100px 60px 84px', gap: '12px', padding: '14px 20px', alignItems: 'center' }}>
+              <button onClick={() => setExpanded(open ? null : t.id)} title="Tap for full detail" style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', minWidth: 0 }}>
                 <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: priorityColors[t.priority], flexShrink: 0 }} />
-                <span style={{ fontSize: '13px', color: t.status === 'completed' ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: t.status === 'completed' ? 'line-through' : 'none' }}>{t.title}</span>
-              </div>
+                <span style={{ fontSize: '13px', color: t.status === 'completed' ? 'var(--text-secondary)' : 'var(--text-primary)', textDecoration: t.status === 'completed' ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shortTitle(t.title)}</span>
+              </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 {emp && <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: emp.color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', fontWeight: '700', color: emp.color }}>{emp.avatar}</div>}
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{emp?.name}</span>
@@ -180,6 +183,18 @@ export default function TasksPage() {
               >
                 {running === t.id ? '…' : '▶ Run'}
               </button>
+            </div>
+            {open && (
+              <div style={{ padding: '0 20px 16px 36px', background: 'var(--bg)', animation: 'fadeIn 0.2s ease' }}>
+                <p style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.6, paddingTop: '4px' }}>{t.title}</p>
+                <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', marginTop: '8px', fontSize: '11px', color: 'var(--text-dim)' }}>
+                  {t.project && <span>Project: <span style={{ color: 'var(--text-secondary)' }}>{t.project}</span></span>}
+                  <span>Owner: <span style={{ color: 'var(--text-secondary)' }}>{emp?.name ?? t.assigneeId}</span></span>
+                  <span>Priority: <span style={{ color: priorityColors[t.priority] }}>{t.priority}</span></span>
+                  {t.dueDate && <span>Due: <span style={{ color: 'var(--text-secondary)' }}>{t.dueDate}</span></span>}
+                </div>
+              </div>
+            )}
             </div>
           );
         })}
@@ -235,6 +250,15 @@ export default function TasksPage() {
       )}
     </div>
   );
+}
+
+// Short, human row title — first clause/sentence, capped — full detail lives behind
+// tap-to-expand. Reads like polished SaaS, not a database row of wall-to-wall text.
+function shortTitle(title: string): string {
+  const t = (title || '').trim();
+  const firstClause = t.split(/[.:\n—-]/)[0].trim() || t;
+  const base = firstClause.length >= 12 ? firstClause : t;
+  return base.length > 60 ? base.slice(0, 57).trimEnd() + '…' : base;
 }
 
 const labelStyle: React.CSSProperties = { fontSize: '11px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' };
