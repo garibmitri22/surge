@@ -382,6 +382,34 @@ export type Database = {
         Update: Partial<Database['public']['Tables']['email_suppressions']['Insert']>;
         Relationships: [];
       };
+      content_pieces: {
+        Row: {
+          id: string;
+          company_id: string;
+          employee_id: string;
+          type: string;
+          platform: string;
+          title: string;
+          body: string;
+          status: string;
+          brief: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          employee_id?: string;
+          type: string;
+          platform?: string;
+          title: string;
+          body: string;
+          status?: string;
+          brief?: string | null;
+        };
+        Update: Partial<Database['public']['Tables']['content_pieces']['Insert']>;
+        Relationships: [];
+      };
       briefing_sends: {
         Row: {
           company_id: string;

@@ -6,6 +6,32 @@ Newest first.
 
 ## 2026-06-06
 
+### Nova's Studio — her surface, content engine (P1 only) (`prompts/nova-studio-prompt.md`)
+Nova (Marketing Director, green) now has a surface, the way Aria has /leads. P1: she
+generates on-brand marketing content from the shared company brain → owner approves/
+edits/archives. NOTHING is published (P2 publishing + P3 video are explicitly OUT, and
+the schema is designed additive for them — Architecture Law #4).
+- **`app/api/studio/run`** — same agent pattern as Aria's run, trimmed for content (no
+  web search). Pulls brand voice + ICP + offer from `memory_entries` + the company
+  profile and drafts a batch via a `create_content_piece` tool (post | script | ugc_brief
+  | caption, platform-native). **Refuses to invent**: if there's no brand voice it returns
+  `no_brand_voice` and points to onboarding — never generic filler, no spend. Metered as
+  `nova_content` (1h) via `lib/hours.mjs` (gate up front, debit on completion, `is_internal`
+  bypass, 0 on a thin/failed run).
+- **`/studio`** (mirrors /leads quality) — Nova's identity up top (her **PresenceOrb**,
+  shipped earlier this session, reacting while she drafts; her green; her focus line), a
+  create affordance (own angle or "Surprise me from our brand"), content grouped by type
+  with per-piece approve / edit / archive / copy-to-clipboard (clipboard = the v1 human
+  handoff), intentional empty state, hover/press micro-interactions, light theme. Added
+  **Studio** to the sidebar. `lib/content.ts` is the data layer.
+- **Migration (PENDING — Cowork to run): `supabase/content_migration.sql`** — `content_pieces`
+  (type/platform/status/brief) with RLS consistent with leads/lead_drafts.
+- **Verify:** `scripts/verify-nova-studio.mjs` — persistence + RLS isolation, status
+  transitions draft→approved→archived, metering (1h, debits once, `is_internal` bypass with
+  a one-off service key), and the no-brand-voice refusal (no spend). Optional end-to-end
+  real run behind `RUN_NOVA=1`. Run it and report: `node scripts/verify-nova-studio.mjs`.
+- build / lint / tsc green.
+
 ### Weekly CEO Briefing email — the day-14 retention anchor (`prompts/weekly-briefing-email-prompt.md`)
 Lever 2 (a reason they stay): every Monday ~08:00 in the owner's timezone, Surge emails
 a one-page summary of what the workforce did, what's planned, and what needs them —
