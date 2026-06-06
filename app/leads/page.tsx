@@ -174,6 +174,7 @@ export default function LeadsPage() {
                     <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {l.businessName}
                       {l.origin === 'inbound' && <span title={`Inbound · ${l.source || 'form'}`} style={{ marginLeft: '6px', fontSize: '9px', color: '#0d9488', background: '#0d948818', borderRadius: '5px', padding: '1px 5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Inbound</span>}
+                      {l.origin === 'researched' && l.relationship && <span title={l.relationship} style={{ marginLeft: '6px', fontSize: '9px', color: '#2563eb', background: '#2563eb18', borderRadius: '5px', padding: '1px 5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>📣 Advertiser</span>}
                       {l.clickCount > 0 && <span title={`Clicked ${l.clickCount}× · last ${fmtDate(l.firstClickedAt)}`} style={{ marginLeft: '6px', fontSize: '10px', color: '#ea580c', fontWeight: 700 }}>🔥 {l.clickCount}</span>}
                     </p>
                     <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{l.origin === 'inbound' ? (l.phone || l.location || '—') : (l.location || '—')}</p>

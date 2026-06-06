@@ -66,6 +66,7 @@ const tools: Anthropic.Tool[] = [
           },
           required: ['icp_fit', 'pain', 'ability', 'reachability'],
         },
+        ad_signal: { type: 'string', description: 'ACTIVE-ADVERTISER signal (only if you verified it via the Meta Ad Library / Google Ads Transparency Center): what they advertise + roughly how long it has run, e.g. "running the same FB roofing ad ~5 months". Long-running ads = committed budget = warmest. Leave blank if they are not a verified advertiser.' },
         next_action: { type: 'string', description: 'The next concrete step for this lead (Lead Lifeline law)' },
         next_action_at: { type: 'string', description: 'When the next step is due (YYYY-MM-DD)' },
         notes: { type: 'string' },
@@ -138,6 +139,9 @@ async function executeTool(
       next_action: String(input.next_action ?? 'Review and draft outreach'),
       next_action_at: (input.next_action_at as string) || todayISO(),
       notes: (input.notes as string) ?? null,
+      // Active-advertiser signal (reuses the relationship column) → drives the
+      // post-click "speed-to-lead leak" angle in the cold-email writer.
+      relationship: (input.ad_signal as string)?.trim() || null,
     };
     if (!row.business_name || !row.source_url) return 'ERROR: business_name and source_url are required (real data only).';
     const { data, error } = await supabase.from('leads').insert(row).select('id').single();
@@ -295,7 +299,9 @@ ${companyBlock}
 COMPANY MEMORY:
 ${memBlock}
 
-You are writing prospect-facing cold email copy. Apply your full Writing Discipline (under 100 words, a specific personalized first line, one small ask, no buzzwords, no "just following up"). The ONE call-to-action must be a booking link: end with a short CTA line that contains the literal placeholder {{CTA_URL}} exactly once (e.g. "If that's worth 15 minutes, grab a time here: {{CTA_URL}}"). Do not write any other link. Output ONLY through the emit_email tool. Never fabricate stats, customers, or claims you can't back.`);
+You are writing prospect-facing cold email copy. Apply your full Writing Discipline (under 100 words, a specific personalized first line, one small ask, no buzzwords, no "just following up"). The ONE call-to-action must be a booking link: end with a short CTA line that contains the literal placeholder {{CTA_URL}} exactly once (e.g. "If that's worth 15 minutes, grab a time here: {{CTA_URL}}"). Do not write any other link. Output ONLY through the emit_email tool. Never fabricate stats, customers, or claims you can't back.
+
+ACTIVE-ADVERTISER ANGLE: if the lead has an "Active-advertiser signal" (they're verified running ads), DO NOT write generic cold copy — lead with the gap we can credibly name and actually fix: leads going COLD AFTER THE CLICK (speed-to-lead). Open by referencing their real, long-running ad ("you've been running [the ad] for a while, so you're spending real money to make the phone ring"), then name the leak: most advertisers don't reply fast enough and a lead answered in 5 minutes converts several times higher than one answered in an hour — Surge puts an AI rep on every lead the second it lands so they stop paying for clicks that die in an inbox. HONESTY (hard rule): you can see THAT they advertise and HOW LONG, but you CANNOT see how their ads convert — never claim to know their conversion or ROI; pitch only the post-click follow-up gap.`);
 
   const client = new Anthropic();
   const counters = { leads: 0, drafts: 0 };
@@ -323,10 +329,12 @@ You are writing prospect-facing cold email copy. Apply your full Writing Discipl
   // Writer: produce ONE cold email on the WRITING_MODEL (Sonnet). Cost recorded.
   async function writeColdEmail(lead: LeadRow): Promise<{ subject: string; body: string }> {
     const l = lead as Record<string, unknown>;
+    const adSignal = (l.relationship as string)?.trim() || '';
     const facts = `Lead: ${l.business_name} (${l.vertical}${l.location ? `, ${l.location}` : ''})
 Website: ${l.website ?? 'n/a'} | Contact: ${l.contact_name ?? 'unknown'} ${l.contact_role ?? ''}
 Why qualified (rubric): ${JSON.stringify(l.score_reasons ?? {})}
-Notes: ${l.notes ?? 'none'}`;
+Notes: ${l.notes ?? 'none'}
+Active-advertiser signal: ${adSignal || 'none (not a verified advertiser)'}`;
     const emit: Anthropic.Tool = {
       name: 'emit_email',
       description: 'Return the finished cold email.',

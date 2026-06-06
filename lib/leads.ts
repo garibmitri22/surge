@@ -26,6 +26,7 @@ export interface Lead {
   consentAt: string | null;
   source: string | null;
   firstTouchAt: string | null;
+  relationship: string | null; // active-advertiser signal (cold) or past-relationship facts (reactivation)
   createdAt: string;
 }
 
@@ -66,6 +67,7 @@ export async function getLeads(): Promise<Lead[]> {
     status: r.status,
     nextAction: r.next_action,
     nextActionAt: r.next_action_at,
+    relationship: r.relationship ?? null,
     clickCount: r.click_count ?? 0,
     firstClickedAt: r.first_clicked_at ?? null,
     bookedAt: r.booked_at ?? null,

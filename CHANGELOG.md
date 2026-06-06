@@ -6,6 +6,35 @@ Newest first.
 
 ## 2026-06-06
 
+### Active-advertiser segment + Variant B/C draft tone (`outreach/active-advertiser-outreach.md`)
+Aria can now prospect businesses verified to be running ads (Meta Ad Library / Google
+Ads Transparency) and write to them in the post-click "speed-to-lead leak" angle instead
+of generic cold copy — the gap we can credibly name and actually fix.
+- `create_lead` gains an optional **`ad_signal`** (what they advertise + roughly how long,
+  captured only when verified) → stored on `leads.relationship` (reuses the reactivation
+  column; no migration).
+- The cold-email writer (`writeColdEmail`) switches to the **Variant B/C angle** when an
+  ad signal is present: open by referencing their real long-running ad, name the leak
+  (leads going cold after the click; 5-min vs 1-hr reply), pitch Aria-on-every-lead — with
+  a **hard honesty rule**: never claim to know how their ads *convert* (we can see THAT
+  they advertise, not their ROI). Keeps the single tracked-CTA booking link.
+- `/leads` shows a **📣 Advertiser** tag on researched leads carrying an ad signal.
+- **Cold-channel guardrail intact:** these are cold (no consent) → email only via the
+  existing `deliverDraft` + warmup + suppression + CAN-SPAM path; `canSendSms` keeps
+  refusing SMS. Manual/individual sends, never bulk harvest-and-blast.
+
+### Polish: idle-employee state + roster hover
+- Idle employees no longer render "Working on: Idle — no active task" (read broken) — show
+  "Ready for work — give the team a directive" on the dashboard roster + workforce cards.
+- Dashboard roster rows (clickable) get a `.table-row` hover affordance.
+
+### Landing: desktop horizontal-scroll regression fixed
+- The score-section `whileInView` entrance animations (`x: ±30`) sat at their pre-view
+  x-offset and pushed ~30px of page-level horizontal overflow / a scrollbar at ≤~1024px
+  desktop widths. Clipped horizontal overflow at the landing `<main>` (`overflowX: 'clip'`
+  inline — the `overflow-x-clip` utility is inert in this Tailwind setup). Verified no
+  overflow at 1024/1280.
+
 ### Hire-an-employee + Department experience (clarity + expansion + upsell) (`prompts/hire-department-experience-prompt.md`)
 Makes Surge feel like running a company, and "Hire" feel like staffing one.
 - **Departments** (`lib/departments.mjs`, data-driven): the workforce groups into
