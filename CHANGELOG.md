@@ -6,6 +6,45 @@ Newest first.
 
 ## 2026-06-06
 
+### The Wedge — lead-gen loop: deeper research + warm-signal + owner ping (`prompts/wedge-leadgen-loop-prompt.md`)
+Extends the existing engine (no rebuild). The loop: research a big scored pipeline →
+draft with ONE tracked CTA link per lead → owner approves → paced sends → prospect
+clicks/books → lead auto-promotes to warm → owner pinged. The warm signal is an ACTION
+(a click/booking), never us reading replies — reply-to stays the customer's own inbox.
+- **Deeper research** — `app/api/agent/run`: ceiling 18→30 iterations; the run prompt now
+  targets **30–50+ real scored leads** (batch many `create_lead` calls per turn), keeps
+  the 0–100 rubric, and explicitly separates the two numbers (leads researched scales;
+  emails sent stays warmup/CAN-SPAM-capped). Never invents leads to hit a number.
+  Metering unchanged (gated/debited via `lib/hours.mjs`, `is_internal` bypass, 0 on thin).
+- **Tracked CTA (the warm signal)** — `lib/sign.mjs`: HMAC-signed, tamper-proof per-lead
+  token (no raw ids in the URL). Every draft embeds exactly ONE signed link
+  (`embedTrackedCta` at draft time + a guard in `deliverDraft`) via a `{{CTA_URL}}`
+  placeholder the writer leaves.
+- **Redirect + booking** — `app/api/r/[token]` verifies the token and calls the
+  SECURITY-DEFINER `register_link_click` RPC (anon-safe): increment `click_count`, stamp
+  `first_clicked_at`, promote new/qualified/drafted/contacted → **warm** (never downgrade
+  replied/meeting), refresh the Lead Lifeline, log activity — then 302 to the customer's
+  `booking_url` or the hosted interest page `app/book/[token]` (→ `register_booking` →
+  status `meeting` + `booked_at`). Idempotent: repeat clicks/bookings don't re-promote.
+- **Owner notification** — on the real new→warm transition (and on booking) Aria emails
+  the owner in-voice ("just clicked your link — they're warm") via a transactional
+  `notifyOwner` (no footer/warmup — it's a 1:1 product ping), plus an activity-feed row.
+  Fires exactly once per event.
+- **Surfaces** — `/leads` sorts warm/booked to the top with a 🔥 count, status pill,
+  click count + first-clicked, and booked date; `settings` adds an optional booking link
+  (Calendly opt-in; blank = hosted page); the Workforce Score pipeline component now
+  weights engaged (warm/booked) leads 2× (`lib/score.mjs` `leadsEngaged`, reused — not
+  forked; backwards-compatible).
+- **Migration (PENDING — Cowork to run): `supabase/warm_signal_migration.sql`** — adds
+  `leads.first_clicked_at/click_count/booked_at`, `companies.booking_url`, `'warm'` to the
+  status check, and the two anon-granted SECURITY DEFINER RPCs.
+- **Verify:** `scripts/verify-wedge.mjs` — token sign/verify round-trip + tamper/wrong-secret
+  rejection (passing now); and live (after the migration) click→warm + increment +
+  idempotent, booking→meeting+booked_at, and status-never-downgrades. Run it and report:
+  `node scripts/verify-wedge.mjs` (Confirm-email OFF; no service key needed).
+- build / lint / tsc green. Optional: set `SURGE_LINK_SECRET` in Vercel + `.env.local` to
+  pin link validity across key rotations (defaults to an existing stable secret).
+
 ### voice-alive Track B — living-presence orb (`prompts/orb-kickoff-prompt.md`)
 - **`components/PresenceOrb.tsx`** — a WebGL (Three.js + GLSL fragment shader)
   "living presence" replacing the static text-box framing. Domain-warped simplex-noise

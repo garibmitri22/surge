@@ -13,6 +13,8 @@ export default function SettingsPage() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [address, setAddress] = useState('');
   const [addrState, setAddrState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [bookingUrl, setBookingUrl] = useState('');
+  const [bookingState, setBookingState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   useEffect(() => {
     let cancelled = false;
@@ -21,8 +23,10 @@ export default function SettingsPage() {
       if (cancelled) return;
       setProfile(p); setHours(h); setCompanyId(id);
       if (id) {
-        const { data } = await supabase.from('companies').select('physical_address').eq('id', id).maybeSingle();
-        if (!cancelled && data?.physical_address) setAddress(data.physical_address);
+        const { data } = await supabase.from('companies').select('physical_address, booking_url').eq('id', id).maybeSingle();
+        if (cancelled) return;
+        if (data?.physical_address) setAddress(data.physical_address);
+        if (data?.booking_url) setBookingUrl(data.booking_url);
       }
     })();
     return () => { cancelled = true; };
@@ -34,6 +38,14 @@ export default function SettingsPage() {
     await supabase.from('companies').update({ physical_address: address.trim() || null }).eq('id', companyId);
     setAddrState('saved');
     setTimeout(() => setAddrState('idle'), 2000);
+  }
+
+  async function saveBookingUrl() {
+    if (!companyId) return;
+    setBookingState('saving');
+    await supabase.from('companies').update({ booking_url: bookingUrl.trim() || null }).eq('id', companyId);
+    setBookingState('saved');
+    setTimeout(() => setBookingState('idle'), 2000);
   }
 
   async function handleReset() {
@@ -155,6 +167,28 @@ export default function SettingsPage() {
               {addrState === 'saving' ? 'Saving…' : addrState === 'saved' ? 'Saved ✓' : 'Save address'}
             </button>
             {!address.trim() && <span style={{ fontSize: '12px', color: 'var(--amber)' }}>Outbound email is blocked until this is set.</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Booking link — where a warm prospect lands after they click the CTA */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '20px' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Booking Link</h2>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Where a prospect goes when they click the call-to-action in Aria&rsquo;s emails. Leave blank to use Surge&rsquo;s built-in interest page.</p>
+        </div>
+        <div style={{ padding: '20px 24px' }}>
+          <input
+            value={bookingUrl}
+            onChange={(e) => setBookingUrl(e.target.value)}
+            placeholder="https://calendly.com/your-team/intro"
+            style={{ width: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none' }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
+            <button onClick={saveBookingUrl} disabled={bookingState === 'saving'} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 18px', fontSize: '13px', fontWeight: '700', cursor: bookingState === 'saving' ? 'default' : 'pointer' }}>
+              {bookingState === 'saving' ? 'Saving…' : bookingState === 'saved' ? 'Saved ✓' : 'Save link'}
+            </button>
+            {!bookingUrl.trim() && <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Using Surge&rsquo;s hosted interest page.</span>}
           </div>
         </div>
       </div>

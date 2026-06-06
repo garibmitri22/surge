@@ -6,8 +6,13 @@ import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { estCostUsd, RESEARCH_MODEL, WRITING_MODEL } from '@/lib/usage-config.mjs';
 import { injectPricing, PRICE_SINGLE, PRICE_TEAM, PRICE_HUMAN_ANCHOR, estimateHours, formatHours } from '@/lib/pricing.mjs';
 import { gateWork, debitHours } from '@/lib/hours.mjs';
+import { trackedLinkUrl } from '@/lib/sign.mjs';
+import { embedTrackedCta } from '@/lib/email.mjs';
 
-const MAX_ITERATIONS = 18;
+// Deeper research: the wedge is a BIG scored pipeline (30–50+ leads/run), not more
+// sends. The model fires many create_lead calls per turn (parallel tool use), so a
+// 30-step ceiling is ample headroom to research, score, and draft without inventing.
+const MAX_ITERATIONS = 30;
 
 type SupabaseServer = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -162,6 +167,10 @@ async function executeTool(
     }
     if (!subject || !body) return 'ERROR: could not produce email subject/body.';
 
+    // Embed the ONE signed, per-lead tracked CTA link (the warm signal). The writer
+    // leaves a {{CTA_URL}} placeholder; we swap in the real link (or append one).
+    try { body = embedTrackedCta(body, trackedLinkUrl(leadId, companyId)); } catch { /* secret missing — leave copy as-is */ }
+
     const { error } = await supabase.from('lead_drafts').insert({
       lead_id: leadId,
       company_id: companyId,
@@ -267,13 +276,15 @@ EXECUTION MODE — you are now DOING the work, not just planning.
 TASK: ${task.title}
 
 RULES (binding):
-1. REAL DATA ONLY. Find real businesses with web_search. Every create_lead needs a real source_url from your search results. If you only find 8 qualified leads, create 8 — never invent.
+1. REAL DATA ONLY. Find real businesses with web_search. Every create_lead needs a real source_url from your search results. NEVER invent a business or a number to hit a target — a real 22 beats a fabricated 40.
 2. WHO TO TARGET — prospect REAL businesses that fit THIS company's ICP: ${targetBrief}
-   Match their industry, customer type, and geography. If the TASK above names a specific segment, follow that. Aim for ~10-15 real qualified leads. Score each 0-100 with the rubric (ICP fit /40, pain /30, ability /20, reachability /10), each part with a one-line reason.
-3. After scoring, draft cold emails (draft_email) for the TOP 5 by score — just pass each lead_id; the senior writer produces the final copy. Drafts are pending approval — you send NOTHING.
-4. Lead Lifeline: every lead must have a next_action + next_action_at.
-5. Log_activity as you go. When done, call report ONCE with real counts (how many researched, how many leads created, top 5 names+scores), then STOP.
-6. Be efficient — you have a limited number of steps. Don't re-research the same businesses. Work incrementally: do a few searches, create those leads, then search more — don't fire many web searches back-to-back in a single step.`);
+   Match their industry, customer type, and geography. If the TASK above names a specific segment, follow that.
+3. GO DEEP — this is a PIPELINE build. Aim for 30–50+ real qualified leads in this run. Keep researching and scoring (vary your searches across sub-segments, neighborhoods/cities, and adjacent terms) until you reach the target OR the search is genuinely exhausted — then say which it was in your report. Score each 0-100 with the rubric (ICP fit /40, pain /30, ability /20, reachability /10), each part with a one-line reason.
+4. Two different numbers — never conflate them: LEADS RESEARCHED is what you scale here (aim high). EMAILS SENT is separately capped by warmup + CAN-SPAM and is the OWNER's call after approval. Your job this run is the deep scored pipeline + drafts, not sending.
+5. After scoring, draft cold emails (draft_email) for the TOP 8 by score — just pass each lead_id; the senior writer produces the final copy with the booking CTA baked in. Drafts are pending approval — you send NOTHING.
+6. Lead Lifeline: every lead must have a next_action + next_action_at.
+7. Log_activity as you go. When done, call report ONCE with real counts (how many researched, how many leads created, whether you hit the target or exhausted the search, top names+scores), then STOP.
+8. EFFICIENCY — you have a limited number of steps but can create MANY leads per step: batch several create_lead calls in one turn after each round of searches. Do a round of searches, create all those leads at once, then search a new sub-segment — don't re-research the same businesses or fire many web searches back-to-back in a single step.`);
 
   // Writer system prompt: same persona/company context, focused purely on writing.
   const writingSystem = injectPricing(`${persona || `You are ${employee?.name ?? employeeId}.`}
@@ -284,7 +295,7 @@ ${companyBlock}
 COMPANY MEMORY:
 ${memBlock}
 
-You are writing prospect-facing cold email copy. Apply your full Writing Discipline (under 100 words, a specific personalized first line, one small ask, no buzzwords, no "just following up"). Output ONLY through the emit_email tool. Never fabricate stats, customers, or claims you can't back.`);
+You are writing prospect-facing cold email copy. Apply your full Writing Discipline (under 100 words, a specific personalized first line, one small ask, no buzzwords, no "just following up"). The ONE call-to-action must be a booking link: end with a short CTA line that contains the literal placeholder {{CTA_URL}} exactly once (e.g. "If that's worth 15 minutes, grab a time here: {{CTA_URL}}"). Do not write any other link. Output ONLY through the emit_email tool. Never fabricate stats, customers, or claims you can't back.`);
 
   const client = new Anthropic();
   const counters = { leads: 0, drafts: 0 };

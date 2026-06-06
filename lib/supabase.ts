@@ -30,6 +30,8 @@ export type Database = {
           plan: string;
           physical_address: string | null;
           warmup_started_at: string | null;
+          is_internal: boolean;
+          booking_url: string | null;
         };
         Insert: {
           id?: string;
@@ -48,6 +50,8 @@ export type Database = {
           plan?: string;
           physical_address?: string | null;
           warmup_started_at?: string | null;
+          is_internal?: boolean;
+          booking_url?: string | null;
         };
         Update: Partial<Database['public']['Tables']['companies']['Insert']>;
         Relationships: [];
@@ -197,6 +201,9 @@ export type Database = {
           notes: string | null;
           created_at: string;
           updated_at: string;
+          first_clicked_at: string | null;
+          click_count: number;
+          booked_at: string | null;
         };
         Insert: {
           id?: string;
@@ -217,6 +224,9 @@ export type Database = {
           next_action: string;
           next_action_at: string;
           notes?: string | null;
+          first_clicked_at?: string | null;
+          click_count?: number;
+          booked_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['leads']['Insert']>;
         Relationships: [];
@@ -384,6 +394,14 @@ export type Database = {
       email_unsubscribe: {
         Args: { p_token: string };
         Returns: boolean;
+      };
+      register_link_click: {
+        Args: { p_lead: string; p_company: string };
+        Returns: unknown;
+      };
+      register_booking: {
+        Args: { p_lead: string; p_company: string; p_name: string; p_email: string; p_time_pref: string };
+        Returns: unknown;
       };
     };
     Enums: { [_ in never]: never };

@@ -6,8 +6,9 @@ import { getLeads, getDrafts, type Lead, type LeadDraft } from '@/lib/leads';
 const VERTICAL_LABEL: Record<string, string> = { med_spa: 'Med Spa', real_estate: 'Real Estate', gym: 'Gym', other: 'Other' };
 const STATUS_COLOR: Record<string, string> = {
   new: '#9ca3af', qualified: '#6366f1', drafted: '#8b5cf6', contacted: '#0891b2',
-  replied: '#16a34a', meeting: '#16a34a', disqualified: '#9ca3af', recycled: '#d97706',
+  warm: '#ea580c', replied: '#16a34a', meeting: '#16a34a', disqualified: '#9ca3af', recycled: '#d97706',
 };
+const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -32,6 +33,7 @@ export default function LeadsPage() {
   }, []);
 
   const filtered = leads.filter((l) => (vFilter === 'all' || l.vertical === vFilter) && (sFilter === 'all' || l.status === sFilter));
+  const warmCount = leads.filter((l) => ['warm', 'meeting'].includes(l.status)).length;
 
   const [notes, setNotes] = useState<Record<string, string>>({});
   // Approve = consent to send. The server attempts delivery (warmup + CAN-SPAM +
@@ -61,16 +63,24 @@ export default function LeadsPage() {
             {overdueCount > 0 && <span style={{ color: 'var(--red)', fontWeight: '600' }}>{overdueCount} overdue action{overdueCount > 1 ? 's' : ''}.</span>}
           </p>
         </div>
-        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 18px', textAlign: 'right' }}>
-          <p style={{ fontSize: '24px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{leads.length}</p>
-          <p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '4px' }}>In pipeline</p>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {warmCount > 0 && (
+            <div style={{ background: '#ea580c10', border: '1px solid #ea580c40', borderRadius: '12px', padding: '12px 18px', textAlign: 'right' }}>
+              <p style={{ fontSize: '24px', fontWeight: '800', color: '#ea580c', fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{warmCount}</p>
+              <p style={{ fontSize: '10px', color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '4px' }}>🔥 Warm / booked</p>
+            </div>
+          )}
+          <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 18px', textAlign: 'right' }}>
+            <p style={{ fontSize: '24px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{leads.length}</p>
+            <p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '4px' }}>In pipeline</p>
+          </div>
         </div>
       </div>
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <FilterRow label="Vertical" value={vFilter} setValue={setVFilter} options={['all', 'med_spa', 'real_estate', 'gym', 'other']} fmt={(o) => (o === 'all' ? 'All' : VERTICAL_LABEL[o])} />
-        <FilterRow label="Status" value={sFilter} setValue={setSFilter} options={['all', 'qualified', 'drafted', 'contacted', 'replied', 'meeting', 'disqualified']} fmt={(o) => (o === 'all' ? 'All' : o)} />
+        <FilterRow label="Status" value={sFilter} setValue={setSFilter} options={['all', 'qualified', 'drafted', 'contacted', 'warm', 'meeting', 'replied', 'disqualified']} fmt={(o) => (o === 'all' ? 'All' : o)} />
       </div>
 
       {loaded && leads.length === 0 ? (
@@ -93,15 +103,19 @@ export default function LeadsPage() {
             const overdue = nowTs > 0 && new Date(l.nextActionAt).getTime() < nowTs && l.status !== 'disqualified' && l.status !== 'meeting';
             const open = expanded === l.id;
             const leadDrafts = drafts.filter((d) => d.leadId === l.id);
+            const engaged = ['warm', 'meeting'].includes(l.status);
             return (
-              <div key={l.id} style={{ borderBottom: '1px solid var(--border)' }}>
+              <div key={l.id} style={{ borderBottom: '1px solid var(--border)', borderLeft: engaged ? '3px solid #ea580c' : '3px solid transparent', background: engaged ? '#ea580c08' : 'transparent' }}>
                 <div
                   onClick={() => setExpanded(open ? null : l.id)}
                   className="table-row"
                   style={{ display: 'grid', gridTemplateColumns: '1fr 110px 90px 110px 1.4fr', gap: '12px', padding: '14px 20px', alignItems: 'center', cursor: 'pointer' }}
                 >
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.businessName}</p>
+                    <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {l.businessName}
+                      {l.clickCount > 0 && <span title={`Clicked ${l.clickCount}× · last ${fmtDate(l.firstClickedAt)}`} style={{ marginLeft: '6px', fontSize: '10px', color: '#ea580c', fontWeight: 700 }}>🔥 {l.clickCount}</span>}
+                    </p>
                     <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{l.location || '—'}</p>
                   </div>
                   <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{VERTICAL_LABEL[l.vertical] || l.vertical}</span>
@@ -126,6 +140,21 @@ export default function LeadsPage() {
                     </div>
                     {l.website && <a href={l.website.startsWith('http') ? l.website : `https://${l.website}`} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--accent)', marginRight: '14px' }}>Website ↗</a>}
                     {l.sourceUrl && <a href={l.sourceUrl} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Source ↗</a>}
+
+                    {(l.clickCount > 0 || l.bookedAt) && (
+                      <div style={{ marginTop: '12px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        {l.clickCount > 0 && (
+                          <span style={{ fontSize: '11.5px', color: '#ea580c', background: '#ea580c12', border: '1px solid #ea580c30', borderRadius: '999px', padding: '4px 12px', fontWeight: 600 }}>
+                            🔥 Clicked {l.clickCount}×{l.firstClickedAt ? ` · first ${fmtDate(l.firstClickedAt)}` : ''}
+                          </span>
+                        )}
+                        {l.bookedAt && (
+                          <span style={{ fontSize: '11.5px', color: '#16a34a', background: '#16a34a12', border: '1px solid #16a34a30', borderRadius: '999px', padding: '4px 12px', fontWeight: 600 }}>
+                            📅 Booked {fmtDate(l.bookedAt)}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {leadDrafts.length > 0 && (
                       <div style={{ marginTop: '14px' }}>

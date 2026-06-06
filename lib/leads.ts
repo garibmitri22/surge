@@ -16,6 +16,9 @@ export interface Lead {
   status: string;
   nextAction: string;
   nextActionAt: string;
+  clickCount: number;
+  firstClickedAt: string | null;
+  bookedAt: string | null;
 }
 
 export interface LeadDraft {
@@ -33,7 +36,7 @@ export async function getLeads(): Promise<Lead[]> {
   const { data, error } = await supabase
     .from('leads').select('*').eq('company_id', companyId).order('score', { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((r) => ({
+  const mapped = (data ?? []).map((r) => ({
     id: r.id,
     businessName: r.business_name,
     vertical: r.vertical,
@@ -47,7 +50,14 @@ export async function getLeads(): Promise<Lead[]> {
     status: r.status,
     nextAction: r.next_action,
     nextActionAt: r.next_action_at,
+    clickCount: r.click_count ?? 0,
+    firstClickedAt: r.first_clicked_at ?? null,
+    bookedAt: r.booked_at ?? null,
   }));
+  // Engagement first: booked meetings, then warm (clicked), then everyone by score.
+  // The warm signal is the point of the pipeline — surface it at the top.
+  const rank = (s: string) => (s === 'meeting' ? 2 : s === 'warm' ? 1 : 0);
+  return mapped.sort((a, b) => rank(b.status) - rank(a.status) || b.score - a.score);
 }
 
 export async function getDrafts(): Promise<LeadDraft[]> {
