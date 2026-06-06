@@ -12,6 +12,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 // they load on the landing page and for logged-out visitors.
 const PUBLIC_PATHS = [
   '/login', '/signup', '/landing', '/legal', '/api/unsubscribe', '/auth/confirm', '/api/cron',
+  '/api/debug-error',
   '/manifest.webmanifest', '/sw.js', '/offline.html', '/icons', '/apple-icon', '/icon',
 ];
 

@@ -38,8 +38,14 @@ export function HoursWidget() {
         <div>
           <p style={{ fontSize: '11px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: 700 }}>Team Hours</p>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-            <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-geist-mono)' }}>{formatHours(h.balance)}</span>
-            {' '}of {formatHours(h.allowance)} team time left this month
+            {h.unlimited ? (
+              <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-geist-mono)' }}>Unlimited</span>
+            ) : (
+              <>
+                <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-geist-mono)' }}>{formatHours(h.balance)}</span>
+                {' '}of {formatHours(h.allowance)} team time left this month
+              </>
+            )}
           </p>
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -48,12 +54,12 @@ export function HoursWidget() {
         </div>
       </div>
 
-      {/* Fuel gauge */}
+      {/* Fuel gauge — internal/owner accounts are unlimited, so the gauge is full. */}
       <div style={{ height: '6px', background: 'var(--border)', borderRadius: '999px', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '999px', transition: 'width 0.8s ease' }} />
+        <div style={{ height: '100%', width: h.unlimited ? '100%' : `${pct}%`, background: h.unlimited ? '#22c55e' : color, borderRadius: '999px', transition: 'width 0.8s ease' }} />
       </div>
 
-      {low && (
+      {!h.unlimited && low && (
         <p style={{ fontSize: '12px', color: '#ef4444', marginTop: '10px', lineHeight: 1.5 }}>
           Running low on hours. The team can put in overtime to keep going, or move up a plan. Ask Atlas.
         </p>

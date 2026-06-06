@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withSentryConfig } from "@sentry/nextjs";
 
 // Pin the workspace/Turbopack root to THIS project directory. Stray lockfiles
 // in the parent folder were making Next infer the wrong root, which loaded the
@@ -14,4 +15,14 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry wraps the build to inject the SDK + (optionally) upload source maps. Source
+// map upload only runs when SENTRY_AUTH_TOKEN is present (Mitri pastes it in Vercel),
+// so local/sandbox builds with no token stay green and never invoke sentry-cli.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  disableLogger: true,
+});

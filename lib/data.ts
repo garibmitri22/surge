@@ -420,6 +420,7 @@ export interface HoursSummary {
   balance: number;
   allowance: number;
   plan: string;
+  unlimited: boolean;
   thisMonthUsed: number;
   byEmployee: { employeeId: string; hours: number }[];
   ledger: HoursLedgerEntry[];
@@ -432,10 +433,11 @@ export async function getHoursSummary(): Promise<HoursSummary | null> {
     const { data: bal, error: balErr } = await supabase.rpc('hours_balance', { p_company: companyId });
     if (balErr) return null; // migration not applied yet
     const [{ data: comp }, { data: rows }] = await Promise.all([
-      supabase.from('companies').select('plan').eq('id', companyId).maybeSingle(),
+      supabase.from('companies').select('plan, is_internal').eq('id', companyId).maybeSingle(),
       supabase.from('hours_ledger').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).limit(100),
     ]);
     const plan = (comp as { plan?: string } | null)?.plan ?? 'single';
+    const unlimited = (comp as { is_internal?: boolean } | null)?.is_internal === true;
     const ledger: HoursLedgerEntry[] = (rows ?? []).map((r) => ({
       id: r.id, delta: Number(r.delta), balanceAfter: Number(r.balance_after),
       reason: r.reason, employeeId: r.employee_id, refType: r.ref_type, createdAt: r.created_at,
@@ -449,7 +451,7 @@ export async function getHoursSummary(): Promise<HoursSummary | null> {
     const byEmployee = Object.entries(byEmpMap)
       .map(([employeeId, hours]) => ({ employeeId, hours: Math.round(hours * 10) / 10 }))
       .sort((a, b) => b.hours - a.hours);
-    return { balance: Number(bal ?? 0), allowance: allowanceForPlan(plan), plan, thisMonthUsed, byEmployee, ledger };
+    return { balance: Number(bal ?? 0), allowance: allowanceForPlan(plan), plan, unlimited, thisMonthUsed, byEmployee, ledger };
   } catch {
     return null;
   }

@@ -122,8 +122,14 @@ export default function SettingsPage() {
           })()}
           {hours && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', padding: '0 4px' }}>
-              <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatHours(hours.balance)} of team time left this month</span>
-              <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{formatHours(hours.thisMonthUsed)} used · overtime available anytime</span>
+              {hours.unlimited ? (
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Unlimited team time (internal account)</span>
+              ) : (
+                <>
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{formatHours(hours.balance)} of team time left this month</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>{formatHours(hours.thisMonthUsed)} used · overtime available anytime</span>
+                </>
+              )}
             </div>
           )}
           <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '12px', textAlign: 'center' }}>Billing coming soon. You&rsquo;re on the founder&rsquo;s free plan.</p>
