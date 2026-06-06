@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
+import { MicButton } from '@/components/MicButton';
 
 interface Msg {
   role: 'user' | 'assistant';
@@ -197,6 +198,7 @@ export function ChatPanel({
           rows={1}
           style={{ flex: 1, resize: 'none', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '11px 14px', fontSize: '13.5px', color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: '120px' }}
         />
+        <MicButton onText={setInput} disabled={streaming} />
         <button
           onClick={() => send(input)}
           disabled={streaming || input.trim() === ''}

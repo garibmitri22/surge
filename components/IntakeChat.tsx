@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { supabase } from '@/lib/supabase';
 import { getMyCompanyId, isOnboardingComplete } from '@/lib/data';
+import { MicButton } from '@/components/MicButton';
 
 // Onboarding v2 — the customer's FIRST conversation, with Atlas (the Chief of
 // Staff). Distinct from the normal employee ChatPanel: it runs in intakeMode,
@@ -216,6 +217,7 @@ export function IntakeChat() {
             rows={1}
             style={{ flex: 1, resize: 'none', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 15px', fontSize: '14px', color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: '140px' }}
           />
+          <MicButton onText={setInput} disabled={busy} />
           <button
             onClick={() => send(input)}
             disabled={busy || input.trim() === ''}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
+import { MicButton } from '@/components/MicButton';
 
 // Dashboard centerpiece — Atlas, the Chief of Staff. His input is a conversation
 // RIGHT HERE on the dashboard: it opens with his Morning Brief and you can keep
@@ -148,6 +149,7 @@ export function AtlasBrief() {
           placeholder="Ask Atlas anything — he answers here or routes it to the right teammate"
           style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '11px 14px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none' }}
         />
+        <MicButton onText={setInput} disabled={streaming} />
         <button
           onClick={() => send(input)}
           disabled={streaming || input.trim() === ''}
