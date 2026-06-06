@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   // iOS doesn't read the manifest for these — Next emits the apple-mobile-web-app meta.
   appleWebApp: { capable: true, title: "Surge", statusBarStyle: "default" },
+  // Next 16 emits the modern `mobile-web-app-capable`; add the legacy apple flag too
+  // so older iOS launches full-screen from the home screen.
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {
