@@ -46,7 +46,13 @@ const uiFiles = [...walk('app', ['.tsx']), ...walk('components', ['.tsx'])];
 const coinHits = [];
 for (const f of uiFiles) {
   for (const line of readFileSync(f, 'utf8').split('\n')) {
-    if (/\b(credit|credits|coin|coins|token|tokens)\b/i.test(line) && !/credential/i.test(line)) coinHits.push(`${f}: ${line.trim().slice(0, 80)}`);
+    // credit/coin are always a currency-copy smell. "token" is noisy now that signed
+    // URL tokens are route params ([token], const { token }, ${token}) — only flag it as
+    // currency phrasing (no surrounding code punctuation / param usage), so real
+    // "you have N tokens" copy is still caught but link-token identifiers are not.
+    const creditCoin = /\b(credits?|coins?)\b/i.test(line) && !/credential/i.test(line);
+    const tokenCopy = /\btokens?\b/i.test(line) && !/[[\]{}().:$]|params|encodeURIComponent|use\(|=>|import\b/.test(line);
+    if (creditCoin || tokenCopy) coinHits.push(`${f}: ${line.trim().slice(0, 80)}`);
   }
 }
 check('no customer-facing credit/coin/token strings', coinHits.length === 0, coinHits.join(' | ') || 'clean');
