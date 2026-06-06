@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getCompanyProfile, getTasks, getActivity, getWorkforceStats, getWorkforceScore, type WorkforceStats, type WorkforceScore } from '@/lib/data';
+import { getCompanyProfile, getTasks, getActivity, getWorkforceStats, getWorkforceScore, getUserDisplay, type WorkforceStats, type WorkforceScore } from '@/lib/data';
 import { getLeads, getDrafts } from '@/lib/leads';
 import type { Task, ActivityItem } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
@@ -43,14 +43,16 @@ export default function BriefingPage() {
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [attention, setAttention] = useState<AttentionItem[]>([]);
   const [score, setScore] = useState<WorkforceScore | null>(null);
+  const [userFirst, setUserFirst] = useState('there');
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [p, ws, sc, tks, acts, leads, drafts] = await Promise.all([
-        getCompanyProfile(), getWorkforceStats(), getWorkforceScore(), getTasks(), getActivity(), getLeads(), getDrafts(),
+      const [p, ws, sc, tks, acts, leads, drafts, who] = await Promise.all([
+        getCompanyProfile(), getWorkforceStats(), getWorkforceScore(), getTasks(), getActivity(), getLeads(), getDrafts(), getUserDisplay(),
       ]);
       if (cancelled) return;
+      setUserFirst(who.firstName);
       if (p?.companyName) setCompanyName(p.companyName);
       setStats(ws);
       setScore(sc);
@@ -91,7 +93,7 @@ export default function BriefingPage() {
           <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-dim)', letterSpacing: '0.5px' }}>SURGE — WEEKLY CEO BRIEFING</span>
         </div>
         <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', lineHeight: 1.2, marginBottom: '6px' }}>
-          Good morning, Mitri.
+          Good morning, {userFirst}.
         </h1>
         <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
           Week of {weekDates.start} – {weekDates.end} · {companyName}

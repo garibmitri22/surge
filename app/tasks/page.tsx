@@ -138,6 +138,8 @@ export default function TasksPage() {
 
       {/* Task List */}
       <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
+       <div className="scroll-x">
+        <div style={{ minWidth: '700px' }}>
         {/* Table header */}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 110px 90px 90px 100px 60px 84px', gap: '12px', padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
           {['Task', 'Assigned To', 'Project', 'Priority', 'Status', 'Due', 'Run'].map(h => (
@@ -181,6 +183,8 @@ export default function TasksPage() {
             </div>
           );
         })}
+        </div>
+       </div>
       </div>
 
       {/* Assign Task Modal */}

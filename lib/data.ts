@@ -291,6 +291,22 @@ export async function getWorkforceStats(): Promise<WorkforceStats> {
 }
 
 // ----------------------------------------------------------------------------
+// The signed-in user's display name — from Supabase auth, never hardcoded. Used in
+// the greeting/briefing/sidebar so every user sees THEIR name (data was always
+// isolated; this was a display-only bug where everyone saw "Mitri").
+// ----------------------------------------------------------------------------
+export async function getUserDisplay(): Promise<{ name: string; firstName: string; initial: string }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const full = String(meta.full_name || meta.name || '').trim();
+  const local = (user?.email || '').split('@')[0].replace(/[._-]+/g, ' ').trim();
+  const name = full || (local ? local.replace(/\b\w/g, (c) => c.toUpperCase()) : 'there');
+  const firstName = name.split(' ')[0];
+  const initial = (name.charAt(0) || 'U').toUpperCase();
+  return { name, firstName, initial };
+}
+
+// ----------------------------------------------------------------------------
 // Per-employee REAL stats for the workforce surfaces. No fabricated scores/KPIs —
 // everything is computed from this company's actual tasks/leads/drafts. Employees
 // with no work yet read honest zeros + "Idle".

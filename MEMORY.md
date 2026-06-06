@@ -198,6 +198,18 @@ The core product feature. Decided by Mitri + CEO:
 
 🐛 **FLAGGED June 4 (CEO, must fix before briefing email ships): `app/briefing/page.tsx` is hardcoded MOCK data** — fake wins ("Booked 28 discovery calls", "Published 31 pieces", "Saved 47 hours") rendered as real. Violates the never-invent-metrics rule on the retention-anchor page itself. Fix: highlights/attention items from real activity_log + KPIs, honest empty states when no data. Not urgent today; HARD GATE before Weekly CEO Briefing email automation. (Also June 4: stray `page_clean.tsx` deleted by Cowork, deletion captured in dev commit accaea4 — resolved.)
 
+## 👥 FRIENDS-LAUNCH FEEDBACK (June 5/6) — first real outside users
+Mitri shared surgehq.io with friends. **Multi-tenant WORKED IN THE WILD: Luna Cycle (jj@gmail.com, 7 leads) + EA Renovations Inc (idainc363@gmail.com, construction, 10 leads) each fully onboarded with OWN isolated leads. Data isolation verified perfect — nobody saw Mitri's data.** First strangers ran the full product and got real scored leads; one (construction) is in-ICP.
+**Feedback triaged → `prompts/friends-feedback-fixes-prompt.md`:**
+- 🐛 **P0 "owner Mitri" bug = HARDCODED string** (not a leak) in dashboard greeting, briefing, Sidebar — every user sees "Mitri." Fix: pull real user name from auth. Embarrassing, trivial.
+- 🐛 **P0 can't run tasks on phone** — Run button off-screen, /tasks won't scroll. Rolls into mobile-pwa job.
+- 🗣️ **Voice/speech input — multiple friends, "ASAP"** (phone typing sucks). v1 = Web Speech mic-to-text on chat/Atlas input.
+- 📷 **Image upload on chat input** — construction friend wanted to SHOW a photo not describe. Visual ICP (construction/med spa/gym). Add attach button → Supabase storage.
+- 😴 **Onboarding "brutal/boring"** even as convo — trim to <5 min, less interrogation (ties to Atlas contextual-questioning fix).
+- 🤖 **"Jarvis feel"** — want personalities to come ALIVE (voice/TTS + persona distinctness + spoken intros). Vibe theme, the product's soul per Mitri.
+- ✅ **LIKED: the lead ranking/scoring system.** Validated differentiator — keep prominent in product + pitch.
+Order: P0 name fix → mobile (incl. tasks scroll) → voice input → image upload → onboarding trim → Jarvis polish. P0 + mobile before send-freeze lifts.
+
 ## 📱 APP DECISION (Mitri, June 5)
 Mitri: "we need to make an app." Driver he picked: **phone experience / home-screen presence.** He chose **full native iOS/Android** despite customer-zero stage (CEO pushed back twice). CEO honest flag logged: home-screen presence is the ONE thing a PWA delivers identically to native at ~1 day vs weeks — native's extra cost buys app-store + deeper push, which weren't his stated driver. **AGREED SEQUENCE (CEO recommendation, pending Mitri override): (1) PWA THIS WEEK** — rides the already-gated mobile-web pass; installable, full-screen, home-screen icon, push-capable; gives Mitri his actual want now, one codebase, no app store. **(2) Native app = real project AFTER first cold sends + customer #1.** Hard reason native does NOT start now: solo dev would vanish into iOS/Android for weeks while leads sit cold and the send-freeze never lifts — native is a scale move, we're at prove-it. Revisit native the moment a paying customer asks for it. ⚠️ Do NOT let native block the critical path (mobile pass → confirm-email → freeze lift → first sends → first customer).
 

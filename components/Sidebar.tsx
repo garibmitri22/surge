@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { getCompanyProfile, isOnboardingComplete } from '@/lib/data';
+import { getCompanyProfile, isOnboardingComplete, getUserDisplay } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { SINGLE_LABEL } from '@/lib/pricing.mjs';
 
@@ -21,6 +21,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const [companyName, setCompanyName] = useState('Your Company');
+  const [user, setUser] = useState<{ name: string; initial: string }>({ name: 'Account', initial: 'U' });
 
   useEffect(() => {
     let cancelled = false;
@@ -31,8 +32,10 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         router.replace('/onboarding');
         return;
       }
-      const profile = await getCompanyProfile();
-      if (!cancelled && profile?.companyName) setCompanyName(profile.companyName);
+      const [profile, who] = await Promise.all([getCompanyProfile(), getUserDisplay()]);
+      if (cancelled) return;
+      if (profile?.companyName) setCompanyName(profile.companyName);
+      setUser({ name: who.name, initial: who.initial });
     })();
     return () => { cancelled = true; };
   }, [router]);
@@ -85,10 +88,10 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <div style={{ padding: '12px 16px 16px', borderTop: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
-          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', color: '#fff' }}>M</div>
+          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', color: '#fff' }}>{user.initial}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Mitri</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Owner · CEO</div>
+            <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Owner</div>
           </div>
           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--green)' }} />
         </div>

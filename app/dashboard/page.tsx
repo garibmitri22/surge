@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getEmployees, getActivity, getTasks, getWorkforceStats, getWorkforceScore, getEmployeeStats, emptyEmployeeStat, getCompanyProfile, type WorkforceStats, type WorkforceScore, type EmployeeStat } from '@/lib/data';
+import { getEmployees, getActivity, getTasks, getWorkforceStats, getWorkforceScore, getEmployeeStats, emptyEmployeeStat, getCompanyProfile, getUserDisplay, type WorkforceStats, type WorkforceScore, type EmployeeStat } from '@/lib/data';
 import type { Employee, ActivityItem, Task } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { AtlasBrief } from '@/components/AtlasBrief';
@@ -33,6 +33,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [tickIndex, setTickIndex] = useState(0);
   const [companyName, setCompanyName] = useState('');
+  const [userFirst, setUserFirst] = useState('there');
   const [greeting] = useState(() => {
     const h = new Date().getHours();
     return h >= 17 ? 'Good evening' : h >= 12 ? 'Good afternoon' : 'Good morning';
@@ -47,8 +48,8 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [emps, acts, tks, ws, sc, es, profile] = await Promise.all([
-        getEmployees(), getActivity(), getTasks(), getWorkforceStats(), getWorkforceScore(), getEmployeeStats(), getCompanyProfile(),
+      const [emps, acts, tks, ws, sc, es, profile, who] = await Promise.all([
+        getEmployees(), getActivity(), getTasks(), getWorkforceStats(), getWorkforceScore(), getEmployeeStats(), getCompanyProfile(), getUserDisplay(),
       ]);
       if (cancelled) return;
       setEmployees(emps);
@@ -57,6 +58,7 @@ export default function Dashboard() {
       setStats(ws);
       setScore(sc);
       setEmpStats(es);
+      setUserFirst(who.firstName);
       if (profile?.companyName) setCompanyName(profile.companyName);
     })();
     return () => { cancelled = true; };
@@ -115,7 +117,7 @@ export default function Dashboard() {
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
           <h1 style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)', lineHeight: 1.2 }}>
-            {greeting}, Mitri.{companyName && <span style={{ color: 'var(--accent)' }}> {companyName}</span>} HQ
+            {greeting}, {userFirst}.{companyName && <span style={{ color: 'var(--accent)' }}> {companyName}</span>} HQ
           </h1>
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '6px' }}>
             Your AI workforce is ready.{' '}
