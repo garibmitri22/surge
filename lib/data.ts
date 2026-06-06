@@ -341,6 +341,15 @@ export async function setAvgDealValue(value: number | null): Promise<void> {
   }
 }
 
+// Day-one activation status — drives the dashboard's "kick the first run on first load"
+// step and the guided first-win card.
+export async function getActivationStatus(): Promise<{ onboarded: boolean; activated: boolean }> {
+  const companyId = await getMyCompanyId();
+  if (!companyId) return { onboarded: false, activated: false };
+  const { data } = await supabase.from('companies').select('onboarding_complete, activated_at').eq('id', companyId).maybeSingle();
+  return { onboarded: data?.onboarding_complete === true, activated: data?.activated_at != null };
+}
+
 export async function getUserDisplay(): Promise<{ name: string; firstName: string; initial: string }> {
   const { data: { user } } = await supabase.auth.getUser();
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;

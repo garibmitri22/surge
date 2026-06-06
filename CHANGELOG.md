@@ -28,6 +28,33 @@ scrollbar but not the miscentering.
   environment — the preview tool renders ~290px + redirects, no Chrome connected — so
   verification is geometry/computed-style measurement, which pinpoints centering exactly.)
 
+### Day-one activation — the team works BEFORE the user does anything
+Kills the empty-app "now what?" that murders activation (CEO Failure #1/#2). The moment
+onboarding completes, Aria has ALREADY done real work and the first screen presents it.
+- **`companies.activated_at`** (`supabase/activation_migration.sql`) — stamps + gates the
+  one-time comped first run; prevents replay.
+- **`/api/onboard/activate`** — server-side, idempotent (atomic claim via a deterministic
+  `act_<company>` task id → 23505 bails): creates Aria's first task, runs it **comped**,
+  and if the owner uploaded a list, also drafts the reactivation batch (comped). Stamps
+  `activated_at` after. Inserts NO leads itself — real research only.
+- **Comped first run**: `app/api/agent/run` + `reactivation/draft` skip the hours gate and
+  charge 0 **only** when `activation && onboarding_complete && !activated_at` — exactly one
+  free run per company, ever (the activate endpoint closes the window). Never charge for the
+  activation moment.
+- **Dashboard day-one**: on first load (onboarded & not activated) it auto-kicks activate
+  and shows a "Your team is going to work right now" state (Aria orb), then renders results
+  — never an empty app, never a bare orb. A guided **"Your team already went to work —
+  review & approve"** card (real lead/draft counts) leads to `/leads`; it shows only while
+  drafts are pending and nothing's been sent, then falls back to the outcomes hero.
+- **Honest + approval-gated**: real businesses + the owner's real uploaded list only — NO
+  mock/demo leads. Drafts land **pending approval**; nothing sends without the owner + send
+  readiness (reply-to/consent/10DLC). Pipeline/activity are real day one; conversions show
+  as they actually happen.
+- **Verify:** `scripts/verify-activation.mjs` — structural proofs (activation kicks a real
+  run, real-data-only/no mock seeding, drafts pending, comped) always; full real end-to-end
+  behind `RUN_ACTIVATION=1` (real leads, pending drafts, balance unchanged, idempotent).
+- **Migration (PENDING): `supabase/activation_migration.sql`.** build / lint / tsc green.
+
 ### Outcomes-first pass — show the money (honestly), demote the plumbing
 2nd buyer review (8.3/10): product showed activity/agents; buyer wants outcomes/results.
 Flipped it, under a hard honesty rule — every number real or a transparently-computed

@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getEmployees, getActivity, getTasks, getWorkforceStats, getWorkforceScore, getEmployeeStats, emptyEmployeeStat, getCompanyProfile, getUserDisplay, getAvgDealValue, type WorkforceStats, type WorkforceScore, type EmployeeStat } from '@/lib/data';
+import { getEmployees, getActivity, getTasks, getWorkforceStats, getWorkforceScore, getEmployeeStats, emptyEmployeeStat, getCompanyProfile, getUserDisplay, getAvgDealValue, getActivationStatus, type WorkforceStats, type WorkforceScore, type EmployeeStat } from '@/lib/data';
+import { PresenceOrb } from '@/components/PresenceOrb';
 import type { Employee, ActivityItem, Task } from '@/lib/mockData';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { AtlasBrief } from '@/components/AtlasBrief';
@@ -57,10 +58,24 @@ export default function Dashboard() {
   const [score, setScore] = useState<WorkforceScore | null>(null);
   const [empStats, setEmpStats] = useState<Record<string, EmployeeStat>>({});
   const [avgDeal, setAvgDeal] = useState<number | null>(null);
+  const [activating, setActivating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Day-one activation: the first time the owner reaches the dashboard, the team
+      // goes to work automatically (real research + drafts, comped). Show a working
+      // state while it runs, then render the results — never an empty app.
+      try {
+        const st = await getActivationStatus();
+        if (!cancelled && st.onboarded && !st.activated) {
+          setActivating(true);
+          await fetch('/api/onboard/activate', { method: 'POST' }).catch(() => {});
+          if (cancelled) return;
+          setActivating(false);
+        }
+      } catch { /* activation is best-effort; never block the dashboard */ }
+
       const [emps, acts, tks, ws, sc, es, profile, who, adv] = await Promise.all([
         getEmployees(), getActivity(), getTasks(), getWorkforceStats(), getWorkforceScore(), getEmployeeStats(), getCompanyProfile(), getUserDisplay(), getAvgDealValue(),
       ]);
@@ -112,6 +127,22 @@ export default function Dashboard() {
   const tickEmp = currentTick ? employees.find(e => e.id === currentTick.employeeId) : undefined;
   const recentTasks = tasks.filter(t => t.status === 'in_progress').slice(0, 3);
 
+  if (activating) {
+    return (
+      <div className="page-pad" style={{ padding: '32px 36px', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', maxWidth: '460px', animation: 'fadeIn 0.3s ease' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+            <PresenceOrb employeeId="aria" state="working" size={120} aria-label="Aria working" />
+          </div>
+          <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>Your team is going to work right now.</h1>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            Aria is researching and scoring your first real leads and drafting outreach for your review. This takes a minute — no need to wait here, it&rsquo;ll be ready when you land on your dashboard.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-pad" style={{ padding: '32px 36px', minHeight: '100vh', animation: 'fadeIn 0.3s ease' }}>
 
@@ -136,6 +167,23 @@ export default function Dashboard() {
           + Hire Employee
         </button>
       </div>
+
+      {/* Guided first win — "your team already went to work" → one clear next action.
+          Shows only while there are drafts to approve and nothing has been sent yet;
+          once they send (or there's nothing pending), it falls back to the normal hero. */}
+      {stats && stats.pendingDrafts > 0 && stats.outreachSent === 0 && (
+        <div style={{ background: 'var(--accent-dim)', border: '1px solid #6366f130', borderRadius: '16px', padding: '18px 22px', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-primary)' }}>Your team already went to work.</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.5 }}>
+              Aria found <strong>{stats.leadsFound}</strong> real lead{stats.leadsFound === 1 ? '' : 's'} and drafted <strong>{stats.pendingDrafts}</strong> outreach email{stats.pendingDrafts === 1 ? '' : 's'} for your review. Nothing sends until you approve.
+            </p>
+          </div>
+          <button onClick={() => router.push('/leads')} style={{ flexShrink: 0, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '11px 20px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            Review &amp; approve →
+          </button>
+        </div>
+      )}
 
       {/* TEAM GENERATED — the hero. Real, verifiable counts + an HONEST money figure
           (Estimated Potential Pipeline = pipeline leads × the owner's own avg deal value,

@@ -18,17 +18,22 @@ import { segmentOf } from '@/lib/reactivation.mjs';
 
 const MAX_DRAFTS = 25;
 
-export async function POST() {
+export async function POST(request: Request) {
   if (!process.env.ANTHROPIC_API_KEY) return new Response('ANTHROPIC_API_KEY is not set on the server.', { status: 500 });
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response('Unauthorized', { status: 401 });
 
+  let body: { activation?: boolean } = {};
+  try { body = await request.json(); } catch { /* no body — manual run */ }
+
   const { data: company } = await supabase.from('companies').select('*').order('created_at', { ascending: false }).limit(1).maybeSingle();
   if (!company) return new Response('Complete onboarding first', { status: 400 });
   const companyId = company.id as string;
 
-  const gate = await gateWork(supabase, companyId, 'reactivation_run', 'Aria');
+  // Comped during the day-one activation moment (same rule as the prospecting run).
+  const comped = body.activation === true && company.onboarding_complete === true && !company.activated_at;
+  const gate = comped ? { ok: true as const, message: '' } : await gateWork(supabase, companyId, 'reactivation_run', 'Aria');
   if (!gate.ok) {
     return Response.json({ ok: false, out_of_hours: true, message: gate.message, created_this_run: { drafts: 0 } }, { status: 402 });
   }
@@ -103,7 +108,7 @@ RULES: under 90 words, warm and specific, reference the relationship ("it's been
       drafts++;
     }
 
-    const charged = drafts === 0 ? 0 : estimateHours('reactivation_run');
+    const charged = (drafts === 0 || comped) ? 0 : estimateHours('reactivation_run');
     const balance = await debitHours(supabase, companyId, charged, 'Reactivation drafting run', { employeeId: 'aria', refType: 'reactivation', refId: runId });
     if (charged > 0) {
       await supabase.from('activity_log').insert({ id: 'a' + Date.now() + Math.floor(Math.random() * 1000), company_id: companyId, employee_id: 'aria', action: `Drafted ${drafts} reactivation message${drafts > 1 ? 's' : ''} for your approval`, detail: null, timestamp: 'just now', sort_order: Date.now() });

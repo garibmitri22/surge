@@ -219,7 +219,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response('Unauthorized', { status: 401 });
 
-  let body: { taskId?: string };
+  let body: { taskId?: string; activation?: boolean };
   try { body = await request.json(); } catch { return new Response('Invalid JSON', { status: 400 }); }
   const taskId = (body.taskId || '').trim();
   if (!taskId) return new Response('taskId required', { status: 400 });
@@ -236,12 +236,19 @@ export async function POST(request: Request) {
   const { data: company } = await supabase.from('companies').select('*').eq('id', companyId).maybeSingle();
   const { data: memory } = await supabase.from('memory_entries').select('type, title, content').eq('company_id', companyId).order('sort_order', { ascending: false }).limit(30);
 
+  // ---- COMPED ACTIVATION RUN — the day-one "your team already went to work" moment.
+  // The owner's FIRST run is on the house (never charge for activation). Valid only
+  // when: caller asked for activation, onboarding is complete, and the company hasn't
+  // been activated yet (companies.activated_at null). Exactly one comped run per company,
+  // ever — the activate endpoint stamps activated_at right after, so it can't be replayed.
+  const comped = body.activation === true && company?.onboarding_complete === true && !company?.activated_at;
+
   // ---- HOURS GATE — checked BEFORE any API spend, charged on completion ------
   // A full prospecting cycle costs aria_run hours. We gate on the balance up front
   // (don't start work we can't afford) but DEBIT on completion, and charge ZERO for
   // a thin/failed run — the customer never pays for our misses. Running out is an
   // in-character overtime moment, not a raw error; the task stays runnable.
-  const gate = await gateWork(supabase, companyId, 'aria_run', employee?.name ?? employeeId);
+  const gate = comped ? { ok: true as const, message: '', balance: Infinity, estimate: 0 } : await gateWork(supabase, companyId, 'aria_run', employee?.name ?? employeeId);
   if (!gate.ok) {
     return Response.json(
       { ok: false, out_of_hours: true, message: gate.message, balance_hours: gate.balance, hours_needed: gate.estimate, created_this_run: { leads: 0, drafts: 0 } },
@@ -407,7 +414,7 @@ Active-advertiser signal: ${adSignal || 'none (not a verified advertiser)'}`;
     // Charge hours on completion. A THIN run (produced no leads) costs ZERO — the
     // customer never pays for our misses. Otherwise debit the estimated cost.
     const thin = counters.leads === 0;
-    const charged = thin ? 0 : estimateHours('aria_run');
+    const charged = (thin || comped) ? 0 : estimateHours('aria_run'); // activation run is on the house
     const balanceAfter = await debitHours(supabase, companyId, charged, `${employee?.name ?? employeeId} task run`, { employeeId, refType: 'task', refId: taskId });
     // Surface the time worked in the activity feed (real hours, real work).
     if (charged > 0) {

@@ -38,6 +38,7 @@ export type Database = {
           owner_phone: string | null;
           tendlc_status: string;
           hired_employees: string[];
+          activated_at: string | null;
         };
         Insert: {
           id?: string;
@@ -64,6 +65,7 @@ export type Database = {
           owner_phone?: string | null;
           tendlc_status?: string;
           hired_employees?: string[];
+          activated_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['companies']['Insert']>;
         Relationships: [];
