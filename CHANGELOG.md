@@ -6,6 +6,45 @@ Newest first.
 
 ## 2026-06-06
 
+### Dashboard credibility + outcome reframe (the conversion fix) (`prompts/dashboard-credibility-prompt.md`)
+Conversion gap = the dashboard screamed agent-activity (not results) and several numbers
+were visibly broken. Governing rule applied everywhere: **every number is correct or gone**
+— no invented $/ROI, verifiable counts only.
+- **Trust bugs fixed:**
+  - "198h of 70h" — new shared `hoursDisplay()` (`lib/hours.mjs`) never renders the
+    ratio when balance > allowance (shows the balance alone), and internal accounts read
+    **"Unlimited"**. `HoursWidget` uses it. Root cause of the stacking fixed by
+    `grant_monthly_allowance` (`supabase/hours_reset_migration.sql`): the monthly grant
+    RESETS to the plan allowance (no rollover), idempotent per period; a one-time backfill
+    corrects legacy over-cap balances; wired into the heartbeat for non-internal companies.
+  - Username leak ("garibmitri1") — `lib/identity.mjs` `displayNameFrom`: real profile
+    name wins; an email handle is only used when it looks like a name (separator, no
+    digits); otherwise "there". `getUserDisplay` uses it; **Settings adds "Your Name"**.
+  - Red failing score demoted — the Score is now a secondary **"Team Health"** tile
+    ("Building — climbs as your team books meetings"), color bands recalibrated so an
+    early real account reads as building (indigo), never red.
+  - Mobile /leads — table scrolls sideways on phones (`.leads-scroll`), no more overlap
+    or clipped "Fol / up" slivers; results-hero goes 2-up on mobile.
+- **Outcome reframe:**
+  - Headline: "Your AI workforce is finding leads, drafting outreach, and following up
+    with prospects — around the clock."
+  - **Verifiable results row promoted to the hero** (Leads Found / Qualified / Outreach
+    Drafted / Meetings Booked — real counts, big). Atlas's morning briefing stays the
+    narrative hero.
+  - Agent cards now say what each teammate does + "Working on: …" (real current task).
+  - Leads show a **trust stamp**: source (Google Maps / LinkedIn / Website / Web form…)
+    + "verified Xm ago", derived from real data.
+- **Migrations (PENDING — Cowork to run):** `supabase/hours_reset_migration.sql` (after
+  hours_migration) and `supabase/internal_flag_migration.sql` (flags the owner company as
+  internal → Unlimited; the owner showing a number was just this unset flag).
+- **Verify:** `scripts/verify-credibility.mjs` — hours never exceed allowance on screen,
+  internal=Unlimited, names never leak handles, monthly grant resets not stacks. Run it
+  and report: `node scripts/verify-credibility.mjs`.
+- **Note (test chatter):** the "can you hear me…" in the Atlas card is the owner's own
+  persisted test conversation (no seed exists in code) — clear it from the account; not a
+  code artifact.
+- build / lint / tsc green.
+
 ### Inbound capture + speed-to-lead (Phase 1 — the B2C/residential motion) (`prompts/inbound-speed-to-lead-prompt.md`)
 The SECOND motion: residential/consumer customers (gyms, realtors, roofers) win by
 answering inbound INSTANTLY, not cold outbound. Cold B2B (Aria's research+email) is

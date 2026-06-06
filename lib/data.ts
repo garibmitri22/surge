@@ -15,6 +15,7 @@ import { getMyCompanyId } from './company';
 import { getLeads, getDrafts } from './leads';
 import { allowanceForPlan } from './pricing.mjs';
 import { computeWorkforceScore } from './score.mjs';
+import { displayNameFrom } from './identity.mjs';
 
 // Re-export the company profile helpers so callers have one data layer.
 export {
@@ -298,12 +299,9 @@ export async function getWorkforceStats(): Promise<WorkforceStats> {
 export async function getUserDisplay(): Promise<{ name: string; firstName: string; initial: string }> {
   const { data: { user } } = await supabase.auth.getUser();
   const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
-  const full = String(meta.full_name || meta.name || '').trim();
-  const local = (user?.email || '').split('@')[0].replace(/[._-]+/g, ' ').trim();
-  const name = full || (local ? local.replace(/\b\w/g, (c) => c.toUpperCase()) : 'there');
-  const firstName = name.split(' ')[0];
-  const initial = (name.charAt(0) || 'U').toUpperCase();
-  return { name, firstName, initial };
+  // displayNameFrom never turns an email handle (e.g. "garibmitri1") into a name —
+  // it falls back to "there" unless there's a real name or a clearly name-like handle.
+  return displayNameFrom(meta, user?.email ?? null);
 }
 
 // ----------------------------------------------------------------------------

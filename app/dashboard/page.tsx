@@ -10,12 +10,22 @@ import { HoursWidget } from '@/components/HoursWidget';
 
 const empColors: Record<string, string> = { aria: '#a78bfa', nova: '#34d399', opus: '#60a5fa', atlas: '#f59e0b' };
 
+// What each teammate actually does — outcome language, not vibes (CEO reframe).
+const empDesc: Record<string, string> = {
+  aria: 'Finds and ranks new leads, drafts personalized outreach, and follows up automatically — so no prospect slips through.',
+  nova: 'Creates on-brand social posts, content, and campaign ideas you approve in one click.',
+  opus: 'Organizes tasks, prepares meeting briefs, and keeps every follow-up on track.',
+  atlas: 'Runs your morning briefing, routes work across the team, and flags what needs your decision.',
+};
+
 function ScoreRing({ score }: { score: number }) {
   const [drawn, setDrawn] = useState(false);
   const r = 54;
   const circ = 2 * Math.PI * r;
   const offset = circ - (drawn ? score / 100 : 0) * circ;
-  const color = score >= 80 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444';
+  // Recalibrated so an early, real account reads as "building," not a red failing grade:
+  // green when strong, amber mid, indigo (accent) while building — never red.
+  const color = score >= 70 ? '#22c55e' : score >= 40 ? '#f59e0b' : '#6366f1';
   useEffect(() => { const t = setTimeout(() => setDrawn(true), 150); return () => clearTimeout(t); }, []);
   return (
     <svg width="130" height="130" viewBox="0 0 130 130">
@@ -92,15 +102,6 @@ export default function Dashboard() {
     })();
   }, []);
 
-  // Every card reads a REAL count — zero stays zero, never a fabricated number.
-  const statCards = [
-    { label: 'Active Tasks', value: stats?.activeTasks ?? 0, color: '#6366f1' },
-    { label: 'Tasks Completed', value: stats?.completedTasks ?? 0, color: '#22c55e' },
-    { label: 'Leads Found', value: stats?.leadsFound ?? 0, color: '#ec4899' },
-    { label: 'Qualified', value: stats?.qualifiedLeads ?? 0, color: '#a78bfa' },
-    { label: 'Drafts Pending', value: stats?.pendingDrafts ?? 0, color: '#f59e0b' },
-    { label: 'Meetings Booked', value: stats?.meetingsBooked ?? 0, color: '#60a5fa' },
-  ];
   const fresh = stats !== null && !stats.hasActivity;
 
   const currentTick = activityLog[tickIndex];
@@ -113,23 +114,38 @@ export default function Dashboard() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
         <div>
-          <p style={{ fontSize: '12px', color: 'var(--text-dim)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>
+          <p suppressHydrationWarning style={{ fontSize: '12px', color: 'var(--text-dim)', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '6px' }}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
-          <h1 style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)', lineHeight: 1.2 }}>
+          <h1 suppressHydrationWarning style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)', lineHeight: 1.2 }}>
             {greeting}, {userFirst}.{companyName && <span style={{ color: 'var(--accent)' }}> {companyName}</span>} HQ
           </h1>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '6px' }}>
-            Your AI workforce is ready.{' '}
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '6px', maxWidth: '640px', lineHeight: 1.5 }}>
+            Your AI workforce is finding leads, drafting outreach, and following up with prospects — around the clock.{' '}
             <span style={{ color: 'var(--green)', fontWeight: '600' }}>
               {employees.filter(e => e.status === 'active').length} online
             </span>{' '}
-            right now.
+            now.
           </p>
         </div>
         <button onClick={() => router.push('/workforce')} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 20px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
           + Hire Employee
         </button>
+      </div>
+
+      {/* Results — the hero. Real, verifiable counts (never invented $/ROI). */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }} className="results-hero">
+        {[
+          { label: 'Leads Found', value: stats?.leadsFound ?? 0, color: '#ec4899' },
+          { label: 'Qualified', value: stats?.qualifiedLeads ?? 0, color: '#a78bfa' },
+          { label: 'Outreach Drafted', value: stats?.pendingDrafts ?? 0, color: '#f59e0b' },
+          { label: 'Meetings Booked', value: stats?.meetingsBooked ?? 0, color: '#60a5fa' },
+        ].map(s => (
+          <div key={s.label} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', boxShadow: 'var(--shadow)', padding: '18px 20px' }}>
+            <p style={{ fontSize: '34px', fontWeight: '800', color: s.value === 0 ? 'var(--text-dim)' : s.color, fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{s.value}</p>
+            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '8px', fontWeight: 600 }}>{s.label}</p>
+          </div>
+        ))}
       </div>
 
       {/* Atlas — Chief of Staff: the dashboard centerpiece (brief + his input) */}
@@ -164,9 +180,9 @@ export default function Dashboard() {
                 <span style={{ fontSize: '40px', fontWeight: '800', color: 'var(--text-dim)', fontFamily: 'var(--font-geist-mono)' }}>—</span>
               </div>
             )}
-            <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Workforce Score</p>
+            <p style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)' }}>Team Health</p>
             <p style={{ fontSize: '11px', color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1.5 }}>
-              {score?.score != null ? 'Live, from your team’s real work.' : 'Unlocks once your team has real work to measure.'}
+              {score?.score != null ? 'Building — climbs as your team books meetings.' : 'Unlocks once your team has real work to measure.'}
             </p>
           </div>
 
@@ -192,17 +208,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Stats + Active Tasks */}
+        {/* Active Tasks (the verifiable results live in the hero row up top) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-            {statCards.map(s => (
-              <div key={s.label} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: 'var(--shadow)', padding: '16px 18px' }}>
-                <p style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '8px' }}>{s.label}</p>
-                <p style={{ fontSize: '26px', fontWeight: '800', color: s.value === 0 ? 'var(--text-dim)' : s.color, fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{s.value}</p>
-              </div>
-            ))}
-          </div>
-
           {fresh && (
             <div style={{ background: 'var(--accent-dim)', border: '1px solid var(--border)', borderRadius: '10px', padding: '10px 16px' }}>
               <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
@@ -260,9 +267,12 @@ export default function Dashboard() {
                   <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{e.name}</span>
                   <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>{e.role}</span>
                 </div>
-                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(empStats[e.id] ?? emptyEmployeeStat()).currentTask}</p>
+                {empDesc[e.id] && <p style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.45, marginBottom: '3px' }}>{empDesc[e.id]}</p>}
+                <p style={{ fontSize: '11px', color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontWeight: 600 }}>Working on:</span> {(empStats[e.id] ?? emptyEmployeeStat()).currentTask}
+                </p>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, alignSelf: 'flex-start', marginTop: '2px' }}>
                 <div className={`status-${e.status}`} style={{ width: '7px', height: '7px', borderRadius: '50%' }} />
                 <span style={{ fontSize: '10px', color: e.status === 'active' ? 'var(--green)' : e.status === 'idle' ? 'var(--amber)' : 'var(--text-dim)', textTransform: 'capitalize' }}>{e.status}</span>
               </div>

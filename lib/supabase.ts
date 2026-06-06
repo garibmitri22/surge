@@ -501,6 +501,10 @@ export type Database = {
         Args: { p_company: string; p_delta: number; p_reason: string; p_employee?: string | null; p_ref_type?: string | null; p_ref_id?: string | null };
         Returns: number;
       };
+      grant_monthly_allowance: {
+        Args: { p_company: string; p_period?: string };
+        Returns: number;
+      };
       email_unsubscribe: {
         Args: { p_token: string };
         Returns: boolean;

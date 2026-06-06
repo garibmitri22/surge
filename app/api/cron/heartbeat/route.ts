@@ -34,7 +34,7 @@ async function runCron(request: Request) {
   });
 
   const { data: companies } = await supabase
-    .from('companies').select('id, timezone').eq('onboarding_complete', true);
+    .from('companies').select('id, timezone, is_internal').eq('onboarding_complete', true);
 
   const now = Date.now();
   const nowDate = new Date(now);
@@ -45,6 +45,12 @@ async function runCron(request: Request) {
       const r = await applySweep(supabase, c.id, now);
       results.push({ companyId: c.id, ...r });
     } catch { /* skip a company that errors; keep sweeping the rest */ }
+
+    // No-rollover: reset the month's allowance (idempotent per period — only acts once
+    // a new month begins). Internal accounts are unlimited, so skip them.
+    if (!c.is_internal) {
+      try { await supabase.rpc('grant_monthly_allowance', { p_company: c.id }); } catch { /* non-fatal */ }
+    }
 
     // Weekly CEO Briefing: only on the company's local Monday. The daily cron runs
     // ~08:00 Central (13:00 UTC), so for the default tz this lands Monday morning.

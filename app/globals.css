@@ -164,8 +164,15 @@ input:focus, select:focus, textarea:focus {
 .grid-side { display: grid; grid-template-columns: 240px 1fr; gap: 20px; }
 .grid-half { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* Leads table: clip to rounded corners on desktop; scroll sideways (not crush) on phones. */
+.leads-scroll { overflow: hidden; }
 @media (max-width: 767px) {
   .grid-side, .grid-half { grid-template-columns: 1fr; }
+  /* Results hero: 4 across on desktop → 2 across on phones (still big, still legible). */
+  .results-hero { grid-template-columns: 1fr 1fr !important; }
+  /* Leads table: never crush columns into unreadable slivers — let it scroll sideways. */
+  .leads-scroll { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; }
+  .leads-scroll > * { min-width: 680px; }
   /* Trim the generous desktop page padding so content fits a 390px screen. */
   .page-pad { padding-left: 16px !important; padding-right: 16px !important; }
   /* Onboarding: drop the brand side panel, give the chat the full screen. */

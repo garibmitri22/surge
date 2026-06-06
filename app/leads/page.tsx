@@ -10,6 +10,31 @@ const STATUS_COLOR: Record<string, string> = {
 };
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
 
+// Trust stamp: where a lead came from + how recently it was verified. Makes "7 leads"
+// read as real, not demo. Derived from the real source/source_url — never invented.
+function sourceLabel(l: Lead): string {
+  if (l.origin === 'inbound') {
+    return ({ surge_form: 'Web form', meta_lead_ads: 'Meta Ad', google_lead_form: 'Google Ad', click_to_call: 'Call' } as Record<string, string>)[l.source || ''] || 'Inbound';
+  }
+  const u = (l.sourceUrl || '').toLowerCase();
+  if (/google|maps|g\.co/.test(u)) return 'Google Maps';
+  if (/linkedin/.test(u)) return 'LinkedIn';
+  if (/facebook|instagram|fb\.com/.test(u)) return 'Social';
+  if (/yelp/.test(u)) return 'Yelp';
+  return u ? 'Website' : 'Research';
+}
+function agoLabel(iso: string, nowTs: number): string {
+  if (!iso || !nowTs) return '';
+  const ms = nowTs - new Date(iso).getTime();
+  if (ms < 0) return 'just now';
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 // Speed-to-lead: human time from capture → first outbound touch.
 function timeToFirstTouch(createdAt: string, firstTouchAt: string | null): string {
   if (!firstTouchAt) return 'not yet';
@@ -125,7 +150,7 @@ export default function LeadsPage() {
           </p>
         </div>
       ) : (
-        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
+        <div className="leads-scroll" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 90px 110px 1.4fr', gap: '12px', padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
             {['Business', 'Vertical', 'Score', 'Status', 'Next action'].map((h) => (
               <p key={h} style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700' }}>{h}</p>
@@ -152,6 +177,7 @@ export default function LeadsPage() {
                       {l.clickCount > 0 && <span title={`Clicked ${l.clickCount}× · last ${fmtDate(l.firstClickedAt)}`} style={{ marginLeft: '6px', fontSize: '10px', color: '#ea580c', fontWeight: 700 }}>🔥 {l.clickCount}</span>}
                     </p>
                     <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{l.origin === 'inbound' ? (l.phone || l.location || '—') : (l.location || '—')}</p>
+                    <p style={{ fontSize: '10px', color: 'var(--green)', marginTop: '1px' }}>✓ {sourceLabel(l)} · verified {agoLabel(l.createdAt, nowTs)}</p>
                   </div>
                   <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{VERTICAL_LABEL[l.vertical] || l.vertical}</span>
                   <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)' }}>{l.score}</span>

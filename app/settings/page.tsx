@@ -17,6 +17,8 @@ export default function SettingsPage() {
   const [bookingState, setBookingState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [ownerPhone, setOwnerPhone] = useState('');
   const [phoneState, setPhoneState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [fullName, setFullName] = useState('');
+  const [nameState, setNameState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [tendlc, setTendlc] = useState('none');
   const [captureUrl, setCaptureUrl] = useState('');
   const [copiedCapture, setCopiedCapture] = useState(false);
@@ -27,6 +29,7 @@ export default function SettingsPage() {
       const [p, h, id] = await Promise.all([getCompanyProfile(), getHoursSummary(), getMyCompanyId()]);
       if (cancelled) return;
       setProfile(p); setHours(h); setCompanyId(id);
+      try { const { data: { user } } = await supabase.auth.getUser(); if (!cancelled) setFullName(String(user?.user_metadata?.full_name || user?.user_metadata?.name || '')); } catch { /* ignore */ }
       if (id) {
         const { data } = await supabase.from('companies').select('physical_address, booking_url, owner_phone, tendlc_status').eq('id', id).maybeSingle();
         if (cancelled) return;
@@ -54,6 +57,13 @@ export default function SettingsPage() {
     await supabase.from('companies').update({ booking_url: bookingUrl.trim() || null }).eq('id', companyId);
     setBookingState('saved');
     setTimeout(() => setBookingState('idle'), 2000);
+  }
+
+  async function saveName() {
+    setNameState('saving');
+    await supabase.auth.updateUser({ data: { full_name: fullName.trim() } });
+    setNameState('saved');
+    setTimeout(() => setNameState('idle'), 2000);
   }
 
   async function saveOwnerPhone() {
@@ -97,6 +107,20 @@ export default function SettingsPage() {
         <button onClick={handleSignOut} style={{ flexShrink: 0, background: 'transparent', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 16px', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
           <span style={{ fontSize: '14px' }}>⏻</span> Sign Out
         </button>
+      </div>
+
+      {/* Your Name — what the team calls you (fixes the email-handle leak in greetings) */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '20px' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Your Name</h2>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>How your team greets you across the app.</p>
+        </div>
+        <div style={{ padding: '20px 24px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Mitri" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '11px 14px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none' }} />
+          <button onClick={saveName} disabled={nameState === 'saving'} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 18px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
+            {nameState === 'saving' ? 'Saving…' : nameState === 'saved' ? 'Saved ✓' : 'Save'}
+          </button>
+        </div>
       </div>
 
       {/* Company Profile */}
