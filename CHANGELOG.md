@@ -28,6 +28,14 @@ scrollbar but not the miscentering.
   environment — the preview tool renders ~290px + redirects, no Chrome connected — so
   verification is geometry/computed-style measurement, which pinpoints centering exactly.)
 
+### Vertical pack #2 — Med Spa / Aesthetics
+Proves the vertical-pack design end to end: added `lib/verticals/med-spas.ts` + one line
+in the registry — **no new code, no migration**. The med-spa brain (ICP = readiness-to-book
+patients + lapsed/expiring; warm/discreet voice; injectables/laser/membership offer; speed-
+to-lead + reactivation + objection templates; readiness-weighted scoring tilt; consented
+before/after content angles) now appears in the onboarding "What kind of business?" picker
+automatically. Matches MEMORY's first ICP (med spas). build / lint / tsc green.
+
 ### Vertical packs — selectable onboarding template (`verticals/home-services-pack.md`)
 Onboarding opens with "What kind of business?" — picking a vertical prefills the company
 brain so intake is confirm-not-fill, and Atlas continues from there. Editable starting

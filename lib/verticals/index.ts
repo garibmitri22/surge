@@ -3,12 +3,13 @@
 // That's the whole change — the onboarding picker + apply endpoint are data-driven.
 import type { VerticalPack } from './types';
 import { homeServices } from './home-services';
+import { medSpas } from './med-spas';
 
 export type { VerticalPack } from './types';
 
 export const VERTICALS: VerticalPack[] = [
   homeServices,
-  // medSpas,   ← vertical #2 lands here as a new file + this line
+  medSpas,
 ];
 
 export function getVertical(id: string): VerticalPack | undefined {
