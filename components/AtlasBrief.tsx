@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { MicButton } from '@/components/MicButton';
+import { SpeakButton } from '@/components/SpeakButton';
 
 // Dashboard centerpiece — Atlas, the Chief of Staff. His input is a conversation
 // RIGHT HERE on the dashboard: it opens with his Morning Brief and you can keep
@@ -135,6 +136,11 @@ export function AtlasBrief() {
                 }}>
                   {m.content || (streaming && i === messages.length - 1 ? <TypingDots /> : '')}
                 </div>
+                {m.role === 'assistant' && m.content && !(streaming && i === messages.length - 1) && (
+                  <div style={{ alignSelf: 'flex-end' }}>
+                    <SpeakButton text={m.content} employeeId="atlas" />
+                  </div>
+                )}
               </div>
             ))}
           </div>

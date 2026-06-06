@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { getMyCompanyId, isOnboardingComplete } from '@/lib/data';
 import { MicButton } from '@/components/MicButton';
 import { ImageButton } from '@/components/ImageButton';
+import { SpeakButton } from '@/components/SpeakButton';
 
 // Onboarding v2 — the customer's FIRST conversation, with Atlas (the Chief of
 // Staff). Distinct from the normal employee ChatPanel: it runs in intakeMode,
@@ -188,6 +189,11 @@ export function IntakeChat() {
               }}>
                 {m.content || (i === view.length - 1 ? <TypingDots color={ATLAS.color} /> : '')}
               </div>
+              {m.role === 'assistant' && m.content && !(streaming && i === view.length - 1) && (
+                <div style={{ alignSelf: 'flex-end' }}>
+                  <SpeakButton text={m.content} employeeId="atlas" />
+                </div>
+              )}
             </div>
           ))}
           {researching && (

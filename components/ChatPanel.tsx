@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { MicButton } from '@/components/MicButton';
 import { ImageButton } from '@/components/ImageButton';
+import { SpeakButton } from '@/components/SpeakButton';
 
 interface Msg {
   role: 'user' | 'assistant';
@@ -181,6 +182,11 @@ export function ChatPanel({
                 >
                   {m.content || (lastAssistantEmpty && i === messages.length - 1 ? <TypingDots color={color} /> : '')}
                 </div>
+                {m.role === 'assistant' && m.content && !(streaming && i === messages.length - 1) && (
+                  <div style={{ alignSelf: 'flex-end' }}>
+                    <SpeakButton text={m.content} employeeId={employeeId} />
+                  </div>
+                )}
               </div>
             ))}
           </div>

@@ -201,7 +201,61 @@ The core product feature. Decided by Mitri + CEO:
 ## 👥 FRIENDS-LAUNCH FEEDBACK (June 5/6) — first real outside users
 Mitri shared surgehq.io with friends. **Multi-tenant WORKED IN THE WILD: Luna Cycle (jj@gmail.com, 7 leads) + EA Renovations Inc (idainc363@gmail.com, construction, 10 leads) each fully onboarded with OWN isolated leads. Data isolation verified perfect — nobody saw Mitri's data.** First strangers ran the full product and got real scored leads; one (construction) is in-ICP.
 **Feedback triaged → `prompts/friends-feedback-fixes-prompt.md`:**
-- 🐛 **P0 "owner Mitri" bug = HARDCODED string** (not a leak) in dashboard greeting, briefing, Sidebar — every user sees "Mitri." Fix: pull real user name from auth. Embarrassing, trivial.
+- 🐛 **P0 "owner Mitri" bug = HARDCODED string** (not a leak) in dashboard greeting, briefing, Sidebar — every user sees "Mitri." Fix: pull real user name from auth. Embarrassing, trivial. (Verified data isolation perfect — only the display string was wrong.)
+- 🐛 **P0 can't run tasks on phone** — Run button off-screen, /tasks won't scroll. Rolls into mobile-pwa job.
+- 🗣️ **Voice/speech input — multiple friends, "ASAP"** (phone typing sucks). v1 = Web Speech mic-to-text on chat/Atlas input.
+- 📷 **Image upload on chat input** — construction friend wanted to SHOW a photo not describe. Visual ICP (construction/med spa/gym). Add attach button → Supabase storage.
+- 😴 **Onboarding "brutal/boring"** even as convo — trim to <5 min, less interrogation (ties to Atlas contextual-questioning fix).
+- 🤖 **"Jarvis feel"** — want personalities to come ALIVE (voice/TTS + persona distinctness + spoken intros). Vibe theme, the product's soul per Mitri.
+- ✅ **LIKED: the lead ranking/scoring system.** Validated differentiator — keep prominent in product + pitch.
+
+## 📱 APP DECISION (Mitri, June 5/6)
+Mitri: "we need to make an app." Driver picked: **phone experience / home-screen presence.** He chose **full native iOS/Android** despite customer-zero stage (CEO pushed back twice: home-screen presence is the ONE thing a PWA delivers identically to native at ~1 day vs weeks). **AGREED SEQUENCE: (1) PWA THIS WEEK** (rides the mobile pass — installable, full-screen, home-screen icon, push-capable; one codebase, no app store) — gives Mitri his actual want now. **(2) Native = real project AFTER first cold sends + customer #1.** Hard reason native does NOT start now: solo dev would vanish into iOS/Android for weeks while leads sit cold + freeze never lifts. Native is a scale move; we're at prove-it. 📤 `prompts/mobile-pwa-prompt.md` (mobile pass + PWA combined).
+
+## 🛠️ OPS, BILLING & ADMIN DECISIONS (Mitri + CEO, June 6)
+From friends-launch. 📤 `prompts/ops-now-prompt.md` covers the two "now" items.
+1. **No plan picker; everyone defaulted single/70h; team features reachable (no entitlement gating).** Root cause: billing not built. DECISION: **plan selection + entitlement gating (single=1 employee/team=all) ship WITH Stripe** — pick plan when you pay. Don't half-build pre-payment.
+2. **"Atlas didn't notify us about the bug."** Atlas = CUSTOMER's agent, NOT platform monitor. Right tool = **error monitoring (Sentry): prod exception → auto email + SMS to Mitri + dev.** DO NOW (~1hr).
+3. **Admin/ops console (Mitri's idea):** view all accounts + status + errors, fix behind scenes, support-access into customer accounts. YES but sequence: full console + impersonation = real project AFTER first customer + ALONGSIDE legal docs (impersonation MUST be consented + audit-logged + ToS-covered). Lean now = Sentry + simple internal view.
+4. **Owner/internal unlimited account (Mitri):** YES NOW (small) — `is_internal` flag on Surge company bypasses hours + entitlement gating. Grow/demo/dogfood freely.
+
+## 🎯 PRODUCT DIRECTION — LEAD GEN IS THE WEDGE + WARM-LOOP (Mitri + CEO, June 6)
+**Make lead gen the PRIME early feature; positioning = "AI that fills your pipeline with qualified, ranked leads"** (friends VALIDATED the ranking). 
+- **Two numbers, don't conflate:** LEADS RESEARCHED scales 7→30–50+ scored/run (easy); EMAILS SENT hard-capped by warmup (~10–100/day) + CAN-SPAM (can't blast 1000 — domain dies). Deliverable = big scored pipeline visible + paced outreach to top. Quality > volume (ranking IS the value).
+- **WARM-SIGNAL ARCHITECTURE (resolves Mitri's "should Aria take everyone's reply emails?" → NO, he was right):** Warm = an ACTION not parsed replies. Every email → ONE tracked CTA link per lead ("book a call"/"yes interested") → click/booking fires into Surge → lead auto→WARM → owner notified. Actual replies go to CUSTOMER's own inbox (reply-to = their address); Surge never ingests/routes per-tenant mail. QR=offline/print only; SMS=Phase 2 (Twilio). Implies booking-link/calendar capability (v1: customer Calendly or simple interest landing page).
+- **THE LOOP ($1k story):** research big scored pipeline → draft w/ booking link → owner approves → paced sends → prospect clicks/books → lead→Warm → owner pinged.
+- **MOAT CAVEAT:** lead-gen tools crowded; raw "we find leads" not defensible alone. Moat = full loop (gen→score→outreach→warm→booked) + per-customer memory compounding. Lead gen = wedge, build toward loop.
+
+## 📋 MASTER BACKLOG (consolidated June 6 — single source of truth, ordered)
+Status: ⬜ todo / 🔨 in progress / ✅ done. Prompt that covers each noted.
+**LAUNCH GATES (clear before cold-sending to prospects):**
+1. ⬜ P0 hardcoded "Mitri" → real user name. `friends-feedback-fixes-prompt.md`
+2. 🔨 Mobile pass + PWA (incl. tasks scroll/Run on phone). `mobile-pwa-prompt.md` + `friends-feedback-fixes`
+3. ⬜ Hours-debit bug (gate enforces, charge doesn't post). `polish-pass-june5-prompt.md`
+4. ✅ Honest dashboard/briefing (verify holds in prod)
+5. ⬜ Dev prod verify suite vs https://surgehq.io (Confirm-email OFF window)
+6. ⬜ Flip Confirm-email ON in Supabase (Cowork holding — AFTER verify)
+7. ⬜ → THEN send-freeze lifts on the 7 drafts
+**OPS — NOW (small):** `ops-now-prompt.md`
+8. ⬜ Owner/internal unlimited flag (Mitri's company bypasses metering+entitlements)
+9. ⬜ Sentry error alerting → email + SMS on prod exceptions
+**FEATURES — next cycle:** `friends-feedback-fixes-prompt.md`
+10. ⬜ Voice/speech input (mic→text)  11. ⬜ Image upload on chat/intake  12. ⬜ Onboarding trim + Atlas contextual questioning  13. ⬜ "Jarvis feel" personality/voice  14. ⬜ **LEAD-GEN LOOP** (deeper research 30–50+, tracked-link warm signal, lead auto→Warm, warm notifications) — the wedge
+**BIGGER — with dependencies:**
+15. ⬜ Stripe billing + plan selection + entitlement gating  16. ⬜ Legal: ToS+Privacy+CAN-SPAM (HARD GATE before first paying customer)  17. ⬜ Full admin console + consented/audited impersonation (after customer #1, with legal)  18. ⬜ Native iOS/Android app (after customer #1; PWA covers now)  19. ⬜ Level-4 heartbeat (needs CRON_SECRET + SERVICE_ROLE_KEY in Vercel)  20. ⬜ ICP reconciliation (broad onboarding vs North Houston verticals; med-spa = speed-to-lead not cold)
+**MITRI'S DESK:** Form 1583 notarization; spot-check Aria leads + draft quality; voice feel-test 4 employees.
+
+## 🧭 NORTH STAR — Agent maturity ladder (Mitri + CEO, June 4)
+Levels: 1 talks → 2 acts in chat → 3 executes multi-step on command → **4 proactive+reactive (acts on time/event/state triggers)** → 5 sets its own goals. **Surge today = Level 3** (run engine, click-to-run). Level 4 = the goal: scheduled heartbeat (Aria daily cycle + Lead Lifeline sweep + Atlas morning brief) + reply handling. It's a scheduler+triggers on the existing engine, not new tech. Usage metering (hours) ships first so autonomy-on-a-clock has a budget; approval mode still gates outward actions until owner flips an employee autonomous.
+
+## Recurring
+- **Daily meeting — 8:00 AM every day** (Cowork scheduled task `surge-daily-meeting`): reads CLAUDE.md/MEMORY.md/CEO.md, delivers status → working → at-risk → next 3 moves.
+
+## Business Model
+- **$399/mo single employee · $999/mo team** (Aria+Nova+Opus run by Atlas) · Enterprise custom. Hours-metered (single 70h/mo, team 200h/mo) + overtime packs. Human-hire anchor: $50K+/yr. Goal: first paying customer ASAP; 20 team customers = the model (~$160K/yr solo).
+
+## Key Files
+- Pricing: `lib/pricing.mjs` · Email: `lib/email.mjs` + `app/api/leads/approve` + heartbeat · Agent run: `app/api/agent/run/route.ts` · Hours: `lib/hours.mjs` + `supabase/hours_migration.sql` · Chat brain: `lib/chat-prompt.mjs` · Personas: `personas/*.md` · Global styles: `app/globals.css` · Deploy runbook: `DEPLOY.md` · Prompts queue: `prompts/`reeting, briefing, Sidebar — every user sees "Mitri." Fix: pull real user name from auth. Embarrassing, trivial.
 - 🐛 **P0 can't run tasks on phone** — Run button off-screen, /tasks won't scroll. Rolls into mobile-pwa job.
 - 🗣️ **Voice/speech input — multiple friends, "ASAP"** (phone typing sucks). v1 = Web Speech mic-to-text on chat/Atlas input.
 - 📷 **Image upload on chat input** — construction friend wanted to SHOW a photo not describe. Visual ICP (construction/med spa/gym). Add attach button → Supabase storage.
@@ -209,7 +263,35 @@ Mitri shared surgehq.io with friends. **Multi-tenant WORKED IN THE WILD: Luna Cy
 - 🤖 **"Jarvis feel"** — want personalities to come ALIVE (voice/TTS + persona distinctness + spoken intros). Vibe theme, the product's soul per Mitri.
 - ✅ **LIKED: the lead ranking/scoring system.** Validated differentiator — keep prominent in product + pitch.
 Order: P0 name fix → mobile (incl. tasks scroll) → voice input → image upload → onboarding trim → Jarvis polish. P0 + mobile before send-freeze lifts.
-**SHIPPED status:** ✅ P0 real-user-name (killed hardcoded "Mitri" in dashboard/briefing/Sidebar via `getUserDisplay()`). ✅ P0 mobile `/tasks` scroll (Run reachable at 390px). ✅ P1 voice — `components/MicButton.tsx` (Web Speech API mic-to-text) wired into ChatPanel + AtlasBrief + IntakeChat composers. ✅ P1 image upload — `components/ImageButton.tsx` (canvas downscale → base64 JPEG) on ChatPanel + IntakeChat; `app/api/chat/route.ts` `parseImageDataUrl()` attaches it as a Claude-vision block on the current turn (image not stored in transcript, persisted as `[shared an image]`); employees can now SEE uploaded photos. ✅ P1 onboarding trim (chat-prompt INTAKE rules: <5 min, batchable, skippable). REMAINING: P1.4 Jarvis polish/TTS (fast-follow). Gates still Mitri's: confirm-email flip + send-freeze lift.
+**SHIPPED status:** ✅ P0 real-user-name (killed hardcoded "Mitri" in dashboard/briefing/Sidebar via `getUserDisplay()`). ✅ P0 mobile `/tasks` scroll (Run reachable at 390px). ✅ P1 voice — `components/MicButton.tsx` (Web Speech API mic-to-text) wired into ChatPanel + AtlasBrief + IntakeChat composers. ✅ P1 image upload — `components/ImageButton.tsx` (canvas downscale → base64 JPEG) on ChatPanel + IntakeChat; `app/api/chat/route.ts` `parseImageDataUrl()` attaches it as a Claude-vision block on the current turn (image not stored in transcript, persisted as `[shared an image]`); employees can now SEE uploaded photos. ✅ P1 onboarding trim (chat-prompt INTAKE rules: <5 min, batchable, skippable). ✅ P1.4 Jarvis TTS — `components/SpeakButton.tsx` (Web Speech SpeechSynthesis) on every completed assistant message in ChatPanel + AtlasBrief + IntakeChat (incl. Atlas's opening line = tap-to-hear "spoken intro"); PER-EMPLOYEE DISTINCT VOICES via VOICE_PROFILES (gender→system-voice pick + pitch/rate so Aria/Nova/Opus/Atlas never sound identical), markdown/emoji stripped before speaking. Tap-to-play, not autoplay (browser autoplay blocks). **Friends-feedback prompt now 100% shipped.** Gates still Mitri's: confirm-email flip + send-freeze lift. NEXT BUILD CYCLE per June 6 direction: lead-gen warm loop (scale Aria research volume/quality, tracked-link warm signal, lead auto-advance to Warm, owner notification).
+
+## 📋 MASTER BACKLOG (consolidated June 6 — single source of truth, ordered)
+Everything Mitri has raised, prioritized. Status: ⬜ todo / 🔨 in progress / ✅ done. Each item notes the prompt that covers it.
+**LAUNCH GATES (must clear before cold-sending to prospects):**
+1. ⬜ P0 — hardcoded "Mitri" name → real user name (dashboard/briefing/Sidebar). `friends-feedback-fixes-prompt.md`
+2. 🔨 Mobile pass + PWA (incl. tasks page scroll/Run reachable on phone). `mobile-pwa-prompt.md` + `friends-feedback-fixes-prompt.md`
+3. ⬜ Hours-debit bug (gate enforces, charging doesn't post). `polish-pass-june5-prompt.md`/hours
+4. ⬜ Honest dashboard/briefing empty states — DONE per dev (verify holds in prod). 
+5. ⬜ Dev runs prod verify suite vs https://surgehq.io (Confirm-email OFF window)
+6. ⬜ Flip Confirm-email ON in Supabase (Cowork holding — do AFTER verify)
+7. ⬜ → THEN send-freeze lifts on the 7 drafts
+**OPS — do NOW (small, high-leverage):** `ops-now-prompt.md`
+8. ⬜ Owner/internal unlimited account flag (Mitri's Surge company bypasses hours + entitlements)
+9. ⬜ Sentry-class error alerting → auto email + SMS to Mitri + dev on prod exceptions
+**FEATURES — next cycle (after gates):**
+10. ⬜ Voice/speech input (Web Speech mic→text on chat/Atlas). `friends-feedback-fixes-prompt.md`
+11. ⬜ Image upload on chat/intake input (construction friend; visual ICP). `friends-feedback-fixes-prompt.md`
+12. ⬜ Onboarding trim (<5 min, less interrogation) + Atlas contextual questioning. `friends-feedback-fixes` + `polish-pass`
+13. ⬜ "Jarvis feel" — personality via voice/TTS + persona distinctness + spoken intros
+14. ⬜ **LEAD-GEN LOOP (the wedge):** deeper Aria research (30–50+ scored/run), tracked-link warm signal, lead auto→Warm, warm notifications. (Spec in PRODUCT DIRECTION block below.)
+**BIGGER — sequenced with dependencies:**
+15. ⬜ Stripe billing + plan selection + entitlement gating (single=1/team=all). 
+16. ⬜ Legal: ToS + Privacy + CAN-SPAM system (HARD GATE before first paying customer). `polish-pass` item 10
+17. ⬜ Full admin/ops console + consented+audited customer impersonation (after first customer, WITH legal)
+18. ⬜ Native iOS/Android app (after customer #1 asks; PWA covers now)
+19. ⬜ Level-4 proactive heartbeat (needs CRON_SECRET + SERVICE_ROLE_KEY in Vercel; after outreach validates)
+20. ⬜ ICP reconciliation (broad onboarding ICP vs North Houston verticals); med-spa pitch = speed-to-lead/inbound not cold
+**MITRI'S DESK:** Form 1583 notarization (mailbox receive); spot-check Aria leads + draft quality; voice feel-test 4 employees; buy nothing else pending.
 
 ## 🎯 PRODUCT DIRECTION — LEAD GEN IS THE WEDGE + WARM-LOOP ARCHITECTURE (Mitri + CEO, June 6)
 **Mitri: make lead generation the PRIME early feature; 7 leads is weak, need volume; need cold→warm conversion + a way for prospects to signal interest.** CEO agrees on the wedge, with corrections:
