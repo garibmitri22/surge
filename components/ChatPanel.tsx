@@ -5,6 +5,8 @@ import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { MicButton } from '@/components/MicButton';
 import { ImageButton } from '@/components/ImageButton';
 import { SpeakButton } from '@/components/SpeakButton';
+import { PresenceOrb } from '@/components/PresenceOrb';
+import type { OrbState } from '@/lib/persona-orb';
 
 interface Msg {
   role: 'user' | 'assistant';
@@ -40,12 +42,15 @@ export function ChatPanel({
   color,
   initialAsk,
   onAskConsumed,
+  working = false,
 }: {
   employeeId: string;
   name: string;
   color: string;
   initialAsk?: string | null;
   onAskConsumed?: () => void;
+  /** True when this employee has an in-progress task — drives the `working` orb. */
+  working?: boolean;
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -130,8 +135,23 @@ export function ChatPanel({
   const lastAssistantEmpty =
     streaming && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && messages[messages.length - 1].content === '';
 
+  // Living presence: thinking (request in flight) → talking (reply streaming;
+  // audio-reactive via text-stream cadence until Track A voices land) →
+  // working (an in-progress task exists) or idle at rest.
+  const orbState: OrbState = streaming
+    ? (lastAssistantEmpty ? 'thinking' : 'talking')
+    : (working ? 'working' : 'idle');
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '560px' }}>
+      {/* Presence header — their orb, always reacting */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>
+        <PresenceOrb employeeId={employeeId} state={orbState} size={44} aria-label={`${name} presence`} />
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>{name}</p>
+          <p style={{ fontSize: '11px', color: 'var(--text-dim)', textTransform: 'capitalize' }}>{orbState === 'idle' ? 'online' : orbState}</p>
+        </div>
+      </div>
       {/* Messages */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '8px 4px 16px' }}>
         {loaded && messages.length === 0 ? (

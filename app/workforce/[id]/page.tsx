@@ -131,6 +131,7 @@ export default function EmployeePage() {
               color={employee.color}
               initialAsk={initialAsk}
               onAskConsumed={() => setInitialAsk(null)}
+              working={empTasks.some(t => t.status === 'in_progress')}
             />
           )}
 

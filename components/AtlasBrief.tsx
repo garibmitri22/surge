@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { MicButton } from '@/components/MicButton';
 import { SpeakButton } from '@/components/SpeakButton';
+import { PresenceOrb } from '@/components/PresenceOrb';
+import type { OrbState } from '@/lib/persona-orb';
 
 // Dashboard centerpiece — Atlas, the Chief of Staff. His input is a conversation
 // RIGHT HERE on the dashboard: it opens with his Morning Brief and you can keep
@@ -90,8 +92,19 @@ export function AtlasBrief() {
 
   const empty = loaded && messages.length === 0;
 
+  // Atlas is alive: thinking while a request is in flight, talking (audio-reactive
+  // — text-stream cadence until Track A voices land) while his reply streams.
+  const last = messages[messages.length - 1];
+  const orbState: OrbState = streaming
+    ? (last && last.role === 'assistant' && last.content === '' ? 'thinking' : 'talking')
+    : 'idle';
+
   return (
     <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderLeft: `3px solid ${ATLAS_COLOR}`, borderRadius: '16px', boxShadow: 'var(--shadow)', padding: '20px 22px', marginBottom: '20px' }}>
+      {/* Living presence — the centerpiece. Orb above, input below, orb reacts. */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
+        <PresenceOrb employeeId="atlas" state={orbState} size={128} aria-label="Atlas presence" />
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
         <div style={{ width: '40px', height: '40px', borderRadius: '11px', overflow: 'hidden', flexShrink: 0 }}>
           <EmployeeAvatar id="atlas" size={40} />

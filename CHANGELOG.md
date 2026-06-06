@@ -6,6 +6,32 @@ Newest first.
 
 ## 2026-06-06
 
+### voice-alive Track B — living-presence orb (`prompts/orb-kickoff-prompt.md`)
+- **`components/PresenceOrb.tsx`** — a WebGL (Three.js + GLSL fragment shader)
+  "living presence" replacing the static text-box framing. Domain-warped simplex-noise
+  FBM renders fluid, organic, glowing liquid-light — not a CSS pulse. Props
+  `{ employeeId, state, size?, analyser?, level? }`.
+- **Stable identity + living modulation.** `lib/persona-orb.ts` centralizes the signature
+  colours (Aria `#a78bfa`, Nova `#34d399`, Opus `#60a5fa`, Atlas `#f59e0b`) and the
+  per-state params (`idle`/`thinking`/`talking`/`working`/`done`/`needs-owner`): motion
+  speed, turbulence, glow, and a hue tint mixed on top of the fixed base colour. State
+  params ease so transitions are graceful.
+- **Reads on LIGHT surfaces.** Luminance-aware deepening + capped brightness + a defined
+  contact-ring so high-luminance hues (Atlas amber) hold their shape on the light theme
+  instead of washing into white.
+- **Audio-reactive seam.** A real Web Audio `AnalyserNode` (RMS of the time-domain
+  waveform) drives amplitude when passed — this is the clean hook for Track A's
+  ElevenLabs playback. Until then `talking` self-animates a synthetic speech cadence (or
+  an explicit `level`), so it feels alive today with NO API key.
+- **Performance.** GPU shader, single mesh, `requestAnimationFrame`, DPR capped at 2,
+  loop paused when the tab is hidden or the orb scrolls offscreen (IntersectionObserver).
+- **Wired to real state.** `AtlasBrief` shows the Atlas orb as the dashboard centerpiece
+  (thinking while a request is in flight → talking while his reply streams). `ChatPanel`
+  gets a presence header that reacts the same way, plus a `working` state when the
+  employee has an in-progress task (passed from `app/workforce/[id]`).
+- Adds `three` + `@types/three`. build / lint / tsc green. Verified visually (clean dev
+  render): all six states, four distinct identity colours, all reading on the light surface.
+
 ### ops-now — owner-unlimited account + Sentry error alerting (`prompts/ops-now-prompt.md`)
 - **`is_internal` owner-unlimited flag.** `supabase/internal_flag_migration.sql` adds
   `companies.is_internal`, flags Mitri's Surge company, and HARDENS it with a trigger
