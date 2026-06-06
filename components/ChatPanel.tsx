@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { MicButton } from '@/components/MicButton';
+import { ImageButton } from '@/components/ImageButton';
 
 interface Msg {
   role: 'user' | 'assistant';
@@ -48,6 +49,7 @@ export function ChatPanel({
   const [messages, setMessages] = useState<Msg[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState('');
+  const [image, setImage] = useState<string | null>(null);
   const [streaming, setStreaming] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -79,15 +81,17 @@ export function ChatPanel({
 
   async function send(text: string) {
     const msg = text.trim();
-    if (!msg || streaming) return;
+    const img = image;
+    if ((!msg && !img) || streaming) return;
     setInput('');
-    setMessages((prev) => [...prev, { role: 'user', content: msg }, { role: 'assistant', content: '' }]);
+    setImage(null);
+    setMessages((prev) => [...prev, { role: 'user', content: msg || (img ? '🖼 Image' : '') }, { role: 'assistant', content: '' }]);
     setStreaming(true);
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employeeId, message: msg, conversationId }),
+        body: JSON.stringify({ employeeId, message: msg, conversationId, imageDataUrl: img ?? undefined }),
       });
       const cid = res.headers.get('X-Conversation-Id');
       if (cid) setConversationId(cid);
@@ -183,6 +187,20 @@ export function ChatPanel({
         )}
       </div>
 
+      {/* Attached-image preview */}
+      {image && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 4px 0' }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '8px', border: '1px solid var(--border)', backgroundImage: `url(${image})`, backgroundSize: 'cover', backgroundPosition: 'center', flexShrink: 0 }} />
+          <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Image attached</span>
+          <button
+            onClick={() => setImage(null)}
+            style={{ fontSize: '11.5px', color: 'var(--text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+          >
+            remove
+          </button>
+        </div>
+      )}
+
       {/* Composer */}
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
         <textarea
@@ -198,20 +216,21 @@ export function ChatPanel({
           rows={1}
           style={{ flex: 1, resize: 'none', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '11px 14px', fontSize: '13.5px', color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: '120px' }}
         />
+        <ImageButton onImage={setImage} disabled={streaming} />
         <MicButton onText={setInput} disabled={streaming} />
         <button
           onClick={() => send(input)}
-          disabled={streaming || input.trim() === ''}
+          disabled={streaming || (input.trim() === '' && !image)}
           style={{
             flexShrink: 0,
-            background: streaming || input.trim() === '' ? 'var(--border)' : 'var(--accent)',
-            color: streaming || input.trim() === '' ? 'var(--text-dim)' : '#fff',
+            background: streaming || (input.trim() === '' && !image) ? 'var(--border)' : 'var(--accent)',
+            color: streaming || (input.trim() === '' && !image) ? 'var(--text-dim)' : '#fff',
             border: 'none',
             borderRadius: '12px',
             padding: '11px 18px',
             fontSize: '13px',
             fontWeight: '700',
-            cursor: streaming || input.trim() === '' ? 'default' : 'pointer',
+            cursor: streaming || (input.trim() === '' && !image) ? 'default' : 'pointer',
             transition: 'all 0.15s ease',
           }}
         >

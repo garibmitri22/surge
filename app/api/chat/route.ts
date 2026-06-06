@@ -54,6 +54,15 @@ function todayStr() {
   return new Date().toISOString().split('T')[0];
 }
 
+// Parse a base64 data URL into the shape Claude vision wants. Only image types
+// Anthropic supports; returns null for anything else (so we just ignore bad input).
+function parseImageDataUrl(u: string): { mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; data: string } | null {
+  const m = /^data:(image\/(?:png|jpe?g|gif|webp));base64,([A-Za-z0-9+/=]+)$/.exec(u || '');
+  if (!m) return null;
+  const mt = m[1] === 'image/jpg' ? 'image/jpeg' : (m[1] as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp');
+  return { mediaType: mt, data: m[2] };
+}
+
 // ---------------------------------------------------------------------------
 // Tools — defined in lib/chat-prompt.mjs (shared with scripts/verify-chat-prompt.mjs
 // so the live verification can never drift from production). toolsFor() adds the
@@ -227,7 +236,7 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response('Unauthorized', { status: 401 });
 
-  let body: { employeeId?: string; message?: string; conversationId?: string; intakeMode?: boolean };
+  let body: { employeeId?: string; message?: string; conversationId?: string; intakeMode?: boolean; imageDataUrl?: string };
   try {
     body = await request.json();
   } catch {
@@ -235,7 +244,10 @@ export async function POST(request: Request) {
   }
   const employeeId = (body.employeeId || '').trim();
   const message = (body.message || '').trim();
-  if (!employeeId || !message) return new Response('employeeId and message are required', { status: 400 });
+  const image = typeof body.imageDataUrl === 'string' ? parseImageDataUrl(body.imageDataUrl) : null;
+  if (!employeeId || (!message && !image)) return new Response('employeeId and a message or image are required', { status: 400 });
+  // What gets persisted to history (the image itself isn't stored in the transcript).
+  const persistedText = message || '[shared an image]';
 
   // Onboarding v2: intake runs through Atlas. In intakeMode we get-or-CREATE the
   // draft company to write to; otherwise a company must already exist.
@@ -259,7 +271,7 @@ export async function POST(request: Request) {
   if (!conversationId) {
     const { data: conv, error: convErr } = await supabase
       .from('conversations')
-      .insert({ company_id: companyId, employee_id: employeeId, title: message.slice(0, 60) })
+      .insert({ company_id: companyId, employee_id: employeeId, title: persistedText.slice(0, 60) })
       .select('id')
       .single();
     if (convErr || !conv) return new Response('Could not start conversation', { status: 500 });
@@ -267,7 +279,7 @@ export async function POST(request: Request) {
   }
 
   // Persist the user's message.
-  await supabase.from('messages').insert({ conversation_id: conversationId, role: 'user', content: message });
+  await supabase.from('messages').insert({ conversation_id: conversationId, role: 'user', content: persistedText });
 
   // Load the MOST RECENT messages (includes the user message we just saved).
   // Order descending + limit, then reverse to chronological — using ascending+limit
@@ -365,6 +377,23 @@ export async function POST(request: Request) {
     role: m.role === 'assistant' ? 'assistant' : 'user',
     content: m.content,
   }));
+
+  // Attach the uploaded image to THIS turn so the employee can actually see it
+  // (Claude vision). We attach to the last user message (the current one).
+  if (image) {
+    for (let i = convo.length - 1; i >= 0; i--) {
+      if (convo[i].role === 'user') {
+        convo[i] = {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } },
+            { type: 'text', text: message || 'I uploaded an image of my business — take a look and use it.' },
+          ],
+        };
+        break;
+      }
+    }
+  }
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({

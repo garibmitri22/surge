@@ -6,6 +6,7 @@ import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { supabase } from '@/lib/supabase';
 import { getMyCompanyId, isOnboardingComplete } from '@/lib/data';
 import { MicButton } from '@/components/MicButton';
+import { ImageButton } from '@/components/ImageButton';
 
 // Onboarding v2 — the customer's FIRST conversation, with Atlas (the Chief of
 // Staff). Distinct from the normal employee ChatPanel: it runs in intakeMode,
@@ -37,6 +38,7 @@ export function IntakeChat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState('');
+  const [image, setImage] = useState<string | null>(null);
   const [streaming, setStreaming] = useState(false);
   const [researching, setResearching] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -68,8 +70,10 @@ export function IntakeChat() {
 
   async function send(text: string) {
     const msg = text.trim();
-    if (!msg || streaming || researching || done) return;
+    const img = image;
+    if ((!msg && !img) || streaming || researching || done) return;
     setInput('');
+    setImage(null);
 
     // Website-first: if the owner pastes a URL and we haven't researched yet, do
     // the one-time site scan BEFORE the chat turn so Atlas's reply can present the
@@ -86,24 +90,24 @@ export function IntakeChat() {
         researchDone.current = true;
       } catch { /* Atlas will fall back to interviewing if findings are thin */ }
       finally { setResearching(false); }
-      await stream(msg);
+      await stream(msg, img ?? undefined);
       return;
     }
 
-    setMessages((prev) => [...prev, { role: 'user', content: msg }]);
-    await stream(msg);
+    setMessages((prev) => [...prev, { role: 'user', content: msg || '🖼 Image' }]);
+    await stream(msg, img ?? undefined);
   }
 
   // POST one turn to the intake chat and stream the reply. The caller is
   // responsible for any user bubble; this only appends the streaming assistant
   // bubble (logo confirmations are sent without a user bubble by design).
-  async function stream(msg: string) {
+  async function stream(msg: string, imageDataUrl?: string) {
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
     setStreaming(true);
     try {
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employeeId: ATLAS.id, message: msg, conversationId, intakeMode: true }),
+        body: JSON.stringify({ employeeId: ATLAS.id, message: msg, conversationId, intakeMode: true, imageDataUrl }),
       });
       const cid = res.headers.get('X-Conversation-Id');
       if (cid) setConversationId(cid);
@@ -199,6 +203,14 @@ export function IntakeChat() {
           Your workforce is ready — taking you to your dashboard…
         </div>
       ) : (
+        <>
+        {image && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 4px 0' }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '8px', border: '1px solid var(--border)', backgroundImage: `url(${image})`, backgroundSize: 'cover', backgroundPosition: 'center', flexShrink: 0 }} />
+            <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Image attached</span>
+            <button onClick={() => setImage(null)} style={{ fontSize: '11.5px', color: 'var(--text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>remove</button>
+          </div>
+        )}
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
           <button
             onClick={() => fileRef.current?.click()}
@@ -217,15 +229,17 @@ export function IntakeChat() {
             rows={1}
             style={{ flex: 1, resize: 'none', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 15px', fontSize: '14px', color: 'var(--text-primary)', outline: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: '140px' }}
           />
+          <ImageButton onImage={setImage} disabled={busy} />
           <MicButton onText={setInput} disabled={busy} />
           <button
             onClick={() => send(input)}
-            disabled={busy || input.trim() === ''}
-            style={{ flexShrink: 0, background: busy || input.trim() === '' ? 'var(--border)' : 'var(--accent)', color: busy || input.trim() === '' ? 'var(--text-dim)' : '#fff', border: 'none', borderRadius: '12px', padding: '12px 20px', fontSize: '13.5px', fontWeight: '700', cursor: busy || input.trim() === '' ? 'default' : 'pointer', transition: 'all 0.15s ease' }}
+            disabled={busy || (input.trim() === '' && !image)}
+            style={{ flexShrink: 0, background: busy || (input.trim() === '' && !image) ? 'var(--border)' : 'var(--accent)', color: busy || (input.trim() === '' && !image) ? 'var(--text-dim)' : '#fff', border: 'none', borderRadius: '12px', padding: '12px 20px', fontSize: '13.5px', fontWeight: '700', cursor: busy || (input.trim() === '' && !image) ? 'default' : 'pointer', transition: 'all 0.15s ease' }}
           >
             {streaming ? '…' : 'Send'}
           </button>
         </div>
+        </>
       )}
     </div>
   );

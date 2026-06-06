@@ -209,6 +209,20 @@ Mitri shared surgehq.io with friends. **Multi-tenant WORKED IN THE WILD: Luna Cy
 - 🤖 **"Jarvis feel"** — want personalities to come ALIVE (voice/TTS + persona distinctness + spoken intros). Vibe theme, the product's soul per Mitri.
 - ✅ **LIKED: the lead ranking/scoring system.** Validated differentiator — keep prominent in product + pitch.
 Order: P0 name fix → mobile (incl. tasks scroll) → voice input → image upload → onboarding trim → Jarvis polish. P0 + mobile before send-freeze lifts.
+**SHIPPED status:** ✅ P0 real-user-name (killed hardcoded "Mitri" in dashboard/briefing/Sidebar via `getUserDisplay()`). ✅ P0 mobile `/tasks` scroll (Run reachable at 390px). ✅ P1 voice — `components/MicButton.tsx` (Web Speech API mic-to-text) wired into ChatPanel + AtlasBrief + IntakeChat composers. ✅ P1 image upload — `components/ImageButton.tsx` (canvas downscale → base64 JPEG) on ChatPanel + IntakeChat; `app/api/chat/route.ts` `parseImageDataUrl()` attaches it as a Claude-vision block on the current turn (image not stored in transcript, persisted as `[shared an image]`); employees can now SEE uploaded photos. ✅ P1 onboarding trim (chat-prompt INTAKE rules: <5 min, batchable, skippable). REMAINING: P1.4 Jarvis polish/TTS (fast-follow). Gates still Mitri's: confirm-email flip + send-freeze lift.
+
+## 🎯 PRODUCT DIRECTION — LEAD GEN IS THE WEDGE + WARM-LOOP ARCHITECTURE (Mitri + CEO, June 6)
+**Mitri: make lead generation the PRIME early feature; 7 leads is weak, need volume; need cold→warm conversion + a way for prospects to signal interest.** CEO agrees on the wedge, with corrections:
+- **Positioning sharpened: "AI that fills your pipeline with qualified, ranked leads"** — concrete, ICP-legible, and friends VALIDATED the ranking. Lead gen + scoring + warm loop = hero of product + next build cycle.
+- **Two different numbers (don't conflate):** (a) LEADS RESEARCHED — scale 7→30–50+ scored/run, easy (7 was a short test); (b) EMAILS SENT — HARD-CAPPED by warmup (~10–100/day) + CAN-SPAM. Cannot blast 1000 cold emails (domain dies). Deliverable = big scored pipeline visible + paced outreach to the top. Quality > volume (50 great > 1000 garbage; ranking IS the value).
+- **WARM-SIGNAL ARCHITECTURE (resolves Mitri's "should Aria take everyone's reply emails?" — answer: NO, he was right):**
+  - **Warm = an ACTION, not parsed replies.** Every cold email drives to ONE tracked CTA link unique per lead ("Book a call"/"Yes, interested"). Click/booking → fires into Surge → lead auto-flips to WARM → customer notified (in-app + alerting). Unambiguous, structured, no inbox-parsing.
+  - **Actual replies go to the CUSTOMER's own inbox** (reply-to = their address). Customer owns the convo; Surge never ingests/routes raw per-tenant mail (avoids the privacy/mixing mess Mitri flagged).
+  - **QR = offline/print only; SMS = separate channel (Twilio, Phase 2).** Note, don't build. Tracked link is king for email.
+  - Implies: booking/calendar link capability (Aria Phase 2 meeting-booking; v1 can use customer-provided Calendly or a simple interest landing page).
+- **THE LOOP (the $1k story):** research big scored pipeline → draft outreach w/ booking link → owner approves → paced sends → prospect clicks/books → lead→Warm → owner pinged.
+- **MOAT CAVEAT (CEO):** lead-gen tools are crowded; raw "we find leads" isn't defensible alone. Defensibility = the FULL loop (gen→score→outreach→warm→booked) + per-customer memory compounding. Lead gen = wedge, keep building toward the loop.
+- 📋 Next build cycle focus: deepen Aria research (volume + quality), tracked-link warm signal + lead status auto-advance, warm notification. (After the P0/mobile/launch gates clear.)
 
 ## 🛠️ OPS, BILLING & ADMIN DECISIONS (Mitri + CEO, June 6) — from friends-launch
 Mitri raised 4 issues. CEO triage + sequencing:
