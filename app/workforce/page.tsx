@@ -68,8 +68,8 @@ export default function WorkforcePage() {
                       <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginLeft: '4px' }}>· {st.activeTasks} active · {st.completedTasks} done</span>
                     </div>
                     <div style={{ background: 'var(--bg)', borderRadius: '8px', padding: '10px 12px', border: '1px solid var(--border)' }}>
-                      <p style={{ fontSize: '10px', color: 'var(--text-dim)', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Working on</p>
-                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{st.currentTask}</p>
+                      <p style={{ fontSize: '10px', color: 'var(--text-dim)', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{st.activeTasks === 0 ? 'Status' : 'Working on'}</p>
+                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{st.activeTasks === 0 ? 'Ready for work — give the team a directive' : st.currentTask}</p>
                     </div>
                   </div>
                 );
