@@ -22,7 +22,7 @@ export async function ariaSmsReply(
   if (!process.env.ANTHROPIC_API_KEY) return null;
 
   const { data: company } = await supabase.from('companies').select('company_name, industry, target_customers, brand_tone, main_goal, booking_url').eq('id', companyId).maybeSingle();
-  const { data: memory } = await supabase.from('memory_entries').select('type, content').eq('company_id', companyId).in('type', ['voice', 'brand', 'offer', 'icp']).limit(12);
+  const { data: memory } = await supabase.from('memory_entries').select('type, content').eq('company_id', companyId).in('type', ['voice', 'brand', 'offer', 'icp', 'process']).limit(14);
 
   let persona = '';
   try { persona = await readFile(path.join(process.cwd(), 'personas', 'aria.md'), 'utf8'); } catch { persona = ''; }

@@ -6,6 +6,28 @@ Newest first.
 
 ## 2026-06-06
 
+### Vertical packs — selectable onboarding template (`verticals/home-services-pack.md`)
+Onboarding opens with "What kind of business?" — picking a vertical prefills the company
+brain so intake is confirm-not-fill, and Atlas continues from there. Editable starting
+points, never locked.
+- **Data-driven packs:** `lib/verticals/` — `types.ts` (the `VerticalPack` contract),
+  `home-services.ts` (roofing/HVAC/flooring, structured from the pack md), and `index.ts`
+  (registry). **Vertical #2 (med spas) = a new pack file + one line in the registry — no
+  new code.**
+- **Apply** (`app/api/onboard/apply-pack`): writes the four required brain singletons
+  (icp/offer/voice/goal, upserted like the chat route so Atlas's later edits update the
+  same rows), seeds message-template + objection + content-angle playbooks and a
+  **Lead-scoring tilt** as `process` brain entries (tagged `pack`, replaced on re-pick),
+  sets `companies.industry`, and seeds Nova's content library with starter drafts (only
+  when empty). No migration — reuses `memory_entries` / `content_pieces` / `companies`.
+- **Onboarding UI:** a vertical picker step before the Atlas chat, with a clear "my
+  business isn't listed — I'll tell Atlas" skip. Light theme, hover states.
+- **Lead-scoring tilt is honored:** Aria's run rubric now applies a "Lead-scoring tilt"
+  brain entry when present (home services → urgency: active leak / no-AC = top; no-date
+  "someday" → nurture). The SMS responder also reads `process` entries, so the seeded
+  speed-to-lead / reactivation templates inform real replies.
+- build / lint / tsc green. No pending migrations.
+
 ### Active-advertiser segment + Variant B/C draft tone (`outreach/active-advertiser-outreach.md`)
 Aria can now prospect businesses verified to be running ads (Meta Ad Library / Google
 Ads Transparency) and write to them in the post-click "speed-to-lead leak" angle instead

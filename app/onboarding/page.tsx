@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { isOnboardingComplete } from '@/lib/data';
 import { IntakeChat } from '@/components/IntakeChat';
+import { verticalChoices } from '@/lib/verticals';
 
 // Onboarding v2: the intake IS a conversation with Atlas, the Chief of Staff —
 // not a form. He researches the site, interviews the owner, and writes the
@@ -19,6 +20,21 @@ const PILLARS = [
 export default function OnboardingPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  // Vertical picker step: choosing a pack prefills the brain (confirm-not-fill), then
+  // Atlas's intake continues. "Skip" goes straight to the conversation. Once picked we
+  // never show the picker again (so a mid-intake re-render doesn't reset).
+  const [step, setStep] = useState<'pick' | 'chat'>('pick');
+  const [applying, setApplying] = useState<string | null>(null);
+  const choices = verticalChoices();
+
+  async function applyPack(id: string) {
+    if (applying) return;
+    setApplying(id);
+    try {
+      await fetch('/api/onboard/apply-pack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ packId: id }) });
+    } catch { /* non-fatal — Atlas can still interview from scratch */ }
+    setStep('chat');
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -72,9 +88,34 @@ export default function OnboardingPage() {
         </p>
       </div>
 
-      {/* Right panel — the live conversation with Atlas */}
+      {/* Right panel — vertical picker first, then the live conversation with Atlas */}
       <div className="onb-main" style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '32px 40px', height: '100vh' }}>
-        <IntakeChat />
+        {step === 'pick' ? (
+          <div style={{ width: '100%', maxWidth: '560px', alignSelf: 'center', animation: 'fadeIn 0.3s ease' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>What kind of business?</h1>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '24px' }}>
+              Pick one and Atlas starts with a brain built for your industry — ideal customers, brand voice, message templates, and content, all ready to edit. Just confirm and tweak; nothing is locked.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {choices.map((v) => (
+                <button key={v.id} onClick={() => applyPack(v.id)} disabled={!!applying} className="card-hover"
+                  style={{ textAlign: 'left', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '18px 20px', cursor: applying ? 'default' : 'pointer', boxShadow: 'var(--shadow)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>{v.label}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-dim)', marginTop: '2px' }}>{v.sub}</div>
+                  </div>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)' }}>{applying === v.id ? 'Setting up…' : 'Use this →'}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setStep('chat')} disabled={!!applying}
+              style={{ marginTop: '18px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: applying ? 'default' : 'pointer', textDecoration: 'underline' }}>
+              My business isn&rsquo;t listed — I&rsquo;ll tell Atlas
+            </button>
+          </div>
+        ) : (
+          <IntakeChat />
+        )}
       </div>
     </div>
   );
