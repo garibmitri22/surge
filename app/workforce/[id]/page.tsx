@@ -59,7 +59,7 @@ export default function EmployeePage() {
   );
 
   return (
-    <div style={{ padding: '32px 36px', animation: 'fadeIn 0.3s ease' }}>
+    <div className="page-pad" style={{ padding: '32px 36px', animation: 'fadeIn 0.3s ease' }}>
 
       {/* Back */}
       <button onClick={() => router.push('/workforce')} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', marginBottom: '24px', padding: 0 }}>

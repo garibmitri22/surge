@@ -106,7 +106,7 @@ export default function Dashboard() {
   const recentTasks = tasks.filter(t => t.status === 'in_progress').slice(0, 3);
 
   return (
-    <div style={{ padding: '32px 36px', minHeight: '100vh', animation: 'fadeIn 0.3s ease' }}>
+    <div className="page-pad" style={{ padding: '32px 36px', minHeight: '100vh', animation: 'fadeIn 0.3s ease' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
@@ -152,7 +152,7 @@ export default function Dashboard() {
       </div>
 
       {/* Main grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '20px', marginBottom: '20px' }}>
+      <div className="grid-side" style={{ marginBottom: '20px' }}>
 
         {/* Workforce Score — real number from real data, or an honest "getting started" */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -242,7 +242,7 @@ export default function Dashboard() {
       </div>
 
       {/* Bottom: Workforce + Activity */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+      <div className="grid-half">
 
         {/* Workforce Status */}
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>

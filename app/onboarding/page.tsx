@@ -43,8 +43,8 @@ export default function OnboardingPage() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg)' }}>
 
-      {/* Left panel — brand + what Atlas will cover */}
-      <div style={{ width: '380px', flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', padding: '40px', justifyContent: 'space-between' }}>
+      {/* Left panel — brand + what Atlas will cover (hidden on phones) */}
+      <div className="onb-aside" style={{ width: '380px', flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', padding: '40px', justifyContent: 'space-between' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '44px' }}>
             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: '800', color: '#fff' }}>S</div>
@@ -73,7 +73,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* Right panel — the live conversation with Atlas */}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '32px 40px', height: '100vh' }}>
+      <div className="onb-main" style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '32px 40px', height: '100vh' }}>
         <IntakeChat />
       </div>
     </div>

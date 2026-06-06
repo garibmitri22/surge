@@ -60,7 +60,7 @@ export default function SettingsPage() {
   ] : [];
 
   return (
-    <div style={{ padding: '32px 36px', animation: 'fadeIn 0.3s ease' }}>
+    <div className="page-pad" style={{ padding: '32px 36px', animation: 'fadeIn 0.3s ease' }}>
       <div style={{ marginBottom: '32px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)' }}>Settings</h1>

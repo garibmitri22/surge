@@ -80,7 +80,7 @@ export default function MemoryPage() {
   }, {} as Record<string, number>);
 
   return (
-    <div style={{ padding: '32px 36px', animation: 'fadeIn 0.3s ease' }}>
+    <div className="page-pad" style={{ padding: '32px 36px', animation: 'fadeIn 0.3s ease' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '32px' }}>

@@ -17,7 +17,7 @@ const nav = [
   { href: '/settings', label: 'Settings', icon: '◌' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const [companyName, setCompanyName] = useState('Your Company');
@@ -60,7 +60,7 @@ export default function Sidebar() {
         {nav.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
-            <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+            <Link key={item.href} href={item.href} onClick={onNavigate} style={{ textDecoration: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '8px', marginBottom: '2px', background: active ? 'var(--accent-dim)' : 'transparent', border: active ? '1px solid #6366f118' : '1px solid transparent', color: active ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: active ? '600' : '400', cursor: 'pointer', transition: 'all 0.15s' }}>
                 <span style={{ fontSize: '14px', opacity: active ? 1 : 0.6 }}>{item.icon}</span>
                 {item.label}
@@ -72,7 +72,7 @@ export default function Sidebar() {
       </nav>
 
       <div style={{ padding: '0 12px 12px' }}>
-        <Link href="/workforce" style={{ textDecoration: 'none' }}>
+        <Link href="/workforce" onClick={onNavigate} style={{ textDecoration: 'none' }}>
           <div style={{ background: 'var(--accent-dim)', border: '1px solid #6366f120', borderRadius: '10px', padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px', color: 'var(--accent)' }}>+</span>
             <div>

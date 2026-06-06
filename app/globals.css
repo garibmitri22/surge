@@ -158,6 +158,22 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* ============================================================================
+   Responsive helpers for the inline-styled app pages. Two-column layouts stack on
+   phones; wide tables scroll horizontally. Used on dashboard/leads/tasks etc.
+   ============================================================================ */
+.grid-side { display: grid; grid-template-columns: 240px 1fr; gap: 20px; }
+.grid-half { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+@media (max-width: 767px) {
+  .grid-side, .grid-half { grid-template-columns: 1fr; }
+  /* Trim the generous desktop page padding so content fits a 390px screen. */
+  .page-pad { padding-left: 16px !important; padding-right: 16px !important; }
+  /* Onboarding: drop the brand side panel, give the chat the full screen. */
+  .onb-aside { display: none !important; }
+  .onb-main { padding: 16px !important; height: 100dvh !important; }
+}
+
+/* ============================================================================
    v0 landing page theme (shadcn tokens). Additive — internal pages don't use
    these utility classes, and the token VALUES match our existing light theme,
    so this does not affect any internal page. `--font-sans` maps to Geist so
