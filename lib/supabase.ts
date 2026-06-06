@@ -32,6 +32,7 @@ export type Database = {
           warmup_started_at: string | null;
           is_internal: boolean;
           booking_url: string | null;
+          timezone: string | null;
         };
         Insert: {
           id?: string;
@@ -52,6 +53,7 @@ export type Database = {
           warmup_started_at?: string | null;
           is_internal?: boolean;
           booking_url?: string | null;
+          timezone?: string | null;
         };
         Update: Partial<Database['public']['Tables']['companies']['Insert']>;
         Relationships: [];
@@ -378,6 +380,24 @@ export type Database = {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['email_suppressions']['Insert']>;
+        Relationships: [];
+      };
+      briefing_sends: {
+        Row: {
+          company_id: string;
+          week_key: string;
+          score: number | null;
+          status: string;
+          sent_at: string;
+        };
+        Insert: {
+          company_id: string;
+          week_key: string;
+          score?: number | null;
+          status?: string;
+          sent_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['briefing_sends']['Insert']>;
         Relationships: [];
       };
     };

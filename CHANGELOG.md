@@ -6,6 +6,34 @@ Newest first.
 
 ## 2026-06-06
 
+### Weekly CEO Briefing email — the day-14 retention anchor (`prompts/weekly-briefing-email-prompt.md`)
+Lever 2 (a reason they stay): every Monday ~08:00 in the owner's timezone, Surge emails
+a one-page summary of what the workforce did, what's planned, and what needs them —
+"makes inaction feel like losing money" (CEO.md Failure Point #2). Extends the EXISTING
+daily heartbeat cron (no second scheduler).
+- **`lib/briefing.mjs`** (shared ESM): pure tz helpers (`isoWeekKey`, `isMondayInTz`,
+  `scoreDelta`); `buildWeeklyBriefing` reuses the SAME inputs + score formula as the
+  in-app `/briefing` page (email and app never disagree); `renderBriefingEmail` (light-
+  theme, mobile-readable HTML + text, the Number prominent with a ▲/▼ vs last week);
+  `sendWeeklyBriefingForCompany` — idempotent, quiet-week nudge, not-onboarded skip.
+- **The Number first**, then what the team did this week (leads researched, emails sent,
+  leads gone warm, meetings booked — concrete real counts, empty sections omitted), what
+  needs you (pending approvals / overdue Lifeline, with one-click deep links), what's
+  planned, and one calm Atlas sign-off line (a single focus for the week).
+- **Cron** (`app/api/cron/heartbeat`): after the daily sweep, for each onboarded company,
+  if it's Monday in its tz → send the weekly briefing. Daily drip unchanged.
+- **Idempotent + honest**: `briefing_sends` (PK `company_id,week_key`) blocks a retry
+  double-send and stores each week's score for next week's delta. Zero-activity weeks get
+  a gentle "one move to make" nudge, not an empty report. Not-onboarded companies skipped.
+- **Not metered** (owner comms, not AI work); `is_internal` still receives it. Sent via
+  the transactional `notifyOwner` (no CAN-SPAM footer/warmup); footer points to Settings.
+- **Migration (PENDING — Cowork to run): `supabase/briefing_migration.sql`** — adds
+  `briefing_sends` + `companies.timezone` (nullable → defaults to America/Chicago).
+- **Verify:** `scripts/verify-weekly-briefing.mjs` — tz-aware week key + Monday detection,
+  delta math, and (after the migration) idempotency blocks double-send, quiet-week path,
+  not-onboarded skip. Run it and report: `node scripts/verify-weekly-briefing.mjs`.
+- build / lint / tsc green.
+
 ### The Wedge — lead-gen loop: deeper research + warm-signal + owner ping (`prompts/wedge-leadgen-loop-prompt.md`)
 Extends the existing engine (no rebuild). The loop: research a big scored pipeline →
 draft with ONE tracked CTA link per lead → owner approves → paced sends → prospect

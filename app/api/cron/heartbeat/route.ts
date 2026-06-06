@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase';
 import { applySweep } from '@/lib/heartbeat.mjs';
+import { isMondayInTz, sendWeeklyBriefingForCompany } from '@/lib/briefing.mjs';
 
 // The while-you-sleep heartbeat: a scheduler (Vercel/Supabase cron) hits this once a
 // day and it runs the Lead Lifeline sweep for EVERY onboarded company. Needs no user
@@ -33,17 +34,29 @@ async function runCron(request: Request) {
   });
 
   const { data: companies } = await supabase
-    .from('companies').select('id').eq('onboarding_complete', true);
+    .from('companies').select('id, timezone').eq('onboarding_complete', true);
 
   const now = Date.now();
+  const nowDate = new Date(now);
   const results: { companyId: string; overdueCount: number; recycleCount: number; taskCreated: boolean }[] = [];
+  const briefings: { companyId: string; sent: boolean; reason: string }[] = [];
   for (const c of companies ?? []) {
     try {
       const r = await applySweep(supabase, c.id, now);
       results.push({ companyId: c.id, ...r });
     } catch { /* skip a company that errors; keep sweeping the rest */ }
+
+    // Weekly CEO Briefing: only on the company's local Monday. The daily cron runs
+    // ~08:00 Central (13:00 UTC), so for the default tz this lands Monday morning.
+    // Idempotency lives in briefing_sends, so a same-day retry never double-sends.
+    try {
+      if (isMondayInTz(nowDate, c.timezone || undefined)) {
+        const b = await sendWeeklyBriefingForCompany(supabase, c.id, { now });
+        briefings.push({ companyId: c.id, sent: b.sent, reason: b.reason });
+      }
+    } catch { /* a briefing failure must never break the daily sweep */ }
   }
-  return Response.json({ ok: true, companies: results.length, results });
+  return Response.json({ ok: true, companies: results.length, results, briefings });
 }
 
 export const GET = runCron;
