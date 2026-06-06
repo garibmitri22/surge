@@ -12,6 +12,7 @@ const nav = [
   { href: '/workforce', label: 'Workforce', icon: '◈' },
   { href: '/tasks', label: 'Tasks', icon: '◻' },
   { href: '/leads', label: 'Leads', icon: '◇' },
+  { href: '/reactivation', label: 'Reactivation', icon: '↻' },
   { href: '/studio', label: 'Studio', icon: '✦' },
   { href: '/memory', label: 'Memory', icon: '◎' },
   { href: '/briefing', label: 'Briefing', icon: '◉' },

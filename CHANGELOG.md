@@ -6,6 +6,37 @@ Newest first.
 
 ## 2026-06-06
 
+### Database reactivation — wake up the owner's existing list (`prompts/database-reactivation-prompt.md`)
+The fastest, lowest-risk "wow" + the lead demo for the Managed Growth Engine: point Aria
+at a business's OWN past customers + unclosed quotes and rebook them — revenue with no ad
+spend, out of contacts they already have a relationship with. Reuses the whole engine
+(leads, lead_drafts, lead_messages, the tracked-link warm signal, deliverDraft/email
+warmup, Twilio consent gate, hours) — nothing rebuilt.
+- **Consent by channel (the spine):** email leads on the established business relationship
+  + CAN-SPAM (already built); SMS/call only where a per-contact consent record exists +
+  10DLC. `consentChannelsFor` stamps `['email']` unless the contact's consent column says
+  yes → adds `sms`/`call`. The existing `canSendSms` then refuses to text an email-only
+  contact. `is_internal` never bypasses consent.
+- **Import** (`/api/reactivation/import`, owner-auth): `lib/reactivation.mjs` parses a
+  CSV/paste (tolerant header mapping, quoted fields), segments (unclosed quotes / past
+  buyers / lapsed), dedupes against existing leads, and inserts `origin='reactivation'`
+  leads with the consent basis + relationship facts (last seen, past value, what they
+  bought). New columns: `leads.last_seen_at/past_value/relationship`.
+- **Aria drafts** (`/api/reactivation/draft`): segmented, brand-voice win-back emails,
+  each with ONE tracked CTA (the wedge's signed link → click promotes to `warm` → owner
+  ping). Pending approval — the send path is the EXISTING `deliverDraft` warmup drip +
+  approve route (and SMS via the consent gate for consented contacts). Metered
+  `reactivation_run` (1h, once per run, 0 on thin/failed).
+- **Surface** `/reactivation` (+ sidebar): upload/paste, segment counts, "have Aria draft
+  outreach", and a real **results headline — rebooked / replied / outreach drafted**.
+  Empty states intentional.
+- **Migration (PENDING — run AFTER inbound_migration): `supabase/reactivation_migration.sql`**
+  (3 relationship columns; `origin='reactivation'` needs no constraint change).
+- **Verify:** `scripts/verify-reactivation.mjs` — email-only contact never auto-texted,
+  import stamps origin/consent/relationship + dedupes, tracked click→warm, metered once
+  (0 on thin). Run it and report: `node scripts/verify-reactivation.mjs`.
+- build / lint / tsc green.
+
 ### Dashboard credibility + outcome reframe (the conversion fix) (`prompts/dashboard-credibility-prompt.md`)
 Conversion gap = the dashboard screamed agent-activity (not results) and several numbers
 were visibly broken. Governing rule applied everywhere: **every number is correct or gone**

@@ -221,6 +221,9 @@ export type Database = {
           consent_channels: string[] | null;
           source: string | null;
           first_touch_at: string | null;
+          last_seen_at: string | null;
+          past_value: number | null;
+          relationship: string | null;
         };
         Insert: {
           id?: string;
@@ -251,6 +254,9 @@ export type Database = {
           consent_channels?: string[] | null;
           source?: string | null;
           first_touch_at?: string | null;
+          last_seen_at?: string | null;
+          past_value?: number | null;
+          relationship?: string | null;
         };
         Update: Partial<Database['public']['Tables']['leads']['Insert']>;
         Relationships: [];
