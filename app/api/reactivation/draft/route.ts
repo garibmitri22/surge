@@ -7,7 +7,7 @@ import { estCostUsd, WRITING_MODEL } from '@/lib/usage-config.mjs';
 import { injectPricing, PRICE_SINGLE } from '@/lib/pricing.mjs';
 import { gateWork, debitHours, estimateHours } from '@/lib/hours.mjs';
 import { embedTrackedCta } from '@/lib/email.mjs';
-import { trackedLinkUrl } from '@/lib/sign.mjs';
+import { createTrackedLink } from '@/lib/sign.mjs';
 import { segmentOf } from '@/lib/reactivation.mjs';
 
 // Aria drafts personalized reactivation outreach over the owner's EXISTING list (known
@@ -101,7 +101,7 @@ RULES: under 90 words, warm and specific, reference the relationship ("it's been
         subject = (out.subject ?? '').trim(); body = (out.body ?? '').trim();
       } catch { continue; }
       if (!subject || !body) continue;
-      try { body = embedTrackedCta(body, trackedLinkUrl(lead.id, companyId)); } catch { /* leave as-is */ }
+      try { const cta = await createTrackedLink(supabase, lead.id, companyId); body = embedTrackedCta(body, cta); } catch { /* couldn't allocate — leave as-is */ }
       const { error } = await supabase.from('lead_drafts').insert({ lead_id: lead.id, company_id: companyId, channel: 'email', sequence_step: 1, subject, body, approval_status: 'pending' });
       if (error) continue;
       await supabase.from('leads').update({ status: 'drafted' }).eq('id', lead.id).eq('company_id', companyId);

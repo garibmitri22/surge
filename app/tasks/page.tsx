@@ -71,20 +71,26 @@ export default function TasksPage() {
 
   async function handleRun(taskId: string) {
     setRunning(taskId);
-    setRunNote('Aria is researching real businesses — this can take a minute…');
+    setRunNote('Aria is working in the background — this can take a minute…');
     const r = await runTask(taskId);
-    setRunning(null);
-    const tks = await getTasks();
-    setTasks(tks);
-    if (r.ok) {
-      const cost = r.usage?.est_cost_usd != null ? ` (run cost ~$${r.usage.est_cost_usd.toFixed(2)})` : '';
-      setRunNote(`Done — ${r.created_this_run?.leads ?? 0} new lead(s), ${r.created_this_run?.drafts ?? 0} draft(s) this run${cost}. Open the Leads page to review.`);
-    } else if (r.quota_exceeded) {
-      // In-character capacity message — an upsell, not an error.
-      setRunNote(r.message ?? 'This employee has hit their monthly capacity.');
-    } else {
-      setRunNote(`Run failed: ${r.error ?? 'unknown error'}`);
+    if (!r.ok) {
+      setRunning(null);
+      // quota_exceeded is an in-character capacity message — an upsell, not an error.
+      setRunNote(r.quota_exceeded ? (r.message ?? 'This employee has hit their monthly capacity.') : `Run failed: ${r.error ?? 'unknown error'}`);
+      return;
     }
+    // The run was ACCEPTED and works in the background — poll the task until it completes,
+    // refreshing the board, then point the owner to the results.
+    const deadline = Date.now() + 6 * 60 * 1000;
+    while (Date.now() < deadline) {
+      await new Promise((res) => setTimeout(res, 4000));
+      const tks = await getTasks();
+      setTasks(tks);
+      const t = tks.find((x) => x.id === taskId);
+      if (!t || t.status === 'completed') break;
+    }
+    setRunning(null);
+    setRunNote('Done — Aria finished this run. Open the Leads page to review the new leads and drafts.');
   }
 
   return (

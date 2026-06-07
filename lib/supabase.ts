@@ -275,6 +275,7 @@ export type Database = {
           subject: string;
           body: string;
           approval_status: string;
+          ab_variant: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -287,8 +288,25 @@ export type Database = {
           subject: string;
           body: string;
           approval_status?: string;
+          ab_variant?: string | null;
         };
         Update: Partial<Database['public']['Tables']['lead_drafts']['Insert']>;
+        Relationships: [];
+      };
+      tracked_links: {
+        Row: {
+          code: string;
+          lead_id: string;
+          company_id: string;
+          created_at: string;
+        };
+        Insert: {
+          code: string;
+          lead_id: string;
+          company_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['tracked_links']['Insert']>;
         Relationships: [];
       };
       usage_counters: {
@@ -535,6 +553,10 @@ export type Database = {
       };
       create_inbound_lead: {
         Args: { p_company: string; p_name: string; p_phone: string; p_email: string; p_consent_text: string; p_consent_channels: string[]; p_consent_ip: string; p_source: string };
+        Returns: unknown;
+      };
+      resolve_tracked_link: {
+        Args: { p_code: string };
         Returns: unknown;
       };
     };

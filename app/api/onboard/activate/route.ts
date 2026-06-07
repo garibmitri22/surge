@@ -1,4 +1,14 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { after } from 'next/server';
+
+// Env-gated like the run route (Hobby caps at 60, Pro honors up to 300). This endpoint only
+// ACKS + kicks the run in after(), so it returns in well under a second regardless.
+export const maxDuration = Number(process.env.MAX_RUN_SECONDS) || 60;
+
+// A claim older than this (with activated_at still null) means the prior activation run was
+// killed before it could finish or clean up — safe to reclaim and retry. Set above the 60s
+// serverless wall so we never yank a claim out from under a run that's genuinely in flight.
+const STALE_CLAIM_MS = 90_000;
 
 // Day-one activation — the moment onboarding completes, the team ALREADY goes to work.
 // Server-side, no user action: create Aria's first task, run it COMPED (real research +
@@ -22,17 +32,33 @@ export async function POST(request: Request) {
   const now = Date.now();
   const today = new Date().toISOString().slice(0, 10);
 
-  // Atomic claim: deterministic id means a concurrent/duplicate activation collides here
-  // (PK 23505) and we bail — so Aria's first run kicks exactly once.
+  // Atomic claim: a deterministic id means a concurrent/duplicate activation collides here
+  // (PK 23505) so Aria's first run kicks exactly once.
   const taskId = 'act_' + companyId;
-  const { error: claimErr } = await supabase.from('tasks').insert({
+  const claimRow = {
     id: taskId, company_id: companyId, title: 'Find & score your first leads',
     assignee_id: 'aria', priority: 'high', project: 'Day-one activation', status: 'queued',
     created_at: today, due_date: today, sort_order: now,
-  });
+  };
+  const { error: claimErr } = await supabase.from('tasks').insert(claimRow);
   if (claimErr) {
-    if (claimErr.code === '23505') return Response.json({ ok: true, already: true, in_progress: true });
-    return Response.json({ ok: false, reason: 'claim_failed', message: claimErr.message }, { status: 400 });
+    if (claimErr.code !== '23505') {
+      return Response.json({ ok: false, reason: 'claim_failed', message: claimErr.message }, { status: 400 });
+    }
+    // A claim already exists. STALE-CLAIM RECLAIM: on Vercel Hobby the run can exceed the
+    // 60s wall and be killed mid-flight — taking THIS endpoint down with it before its
+    // failure-cleanup runs, leaving the claim behind with activated_at still null. Without
+    // this, every later load would 23505 → "already in_progress" → never retry (the stuck-
+    // at-3 bug). So: if the existing claim is older than the wall (a prior run must have
+    // died — activated_at is still null, checked above), delete + re-create it and proceed
+    // with a fresh run. A genuinely in-flight run (claim younger than the wall) still bails.
+    const { data: existing } = await supabase
+      .from('tasks').select('sort_order').eq('id', taskId).eq('company_id', companyId).maybeSingle();
+    const claimAgeMs = existing?.sort_order ? now - Number(existing.sort_order) : Infinity;
+    if (claimAgeMs < STALE_CLAIM_MS) return Response.json({ ok: true, already: true, in_progress: true });
+    await supabase.from('tasks').delete().eq('id', taskId).eq('company_id', companyId);
+    const { error: reclaimErr } = await supabase.from('tasks').insert(claimRow);
+    if (reclaimErr) return Response.json({ ok: true, already: true, in_progress: true }); // lost a race — let the winner run
   }
 
   // Internal, authenticated calls (forward the session cookie) to the EXISTING engines,
@@ -43,26 +69,22 @@ export async function POST(request: Request) {
     fetch(`${origin}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie }, body: JSON.stringify(payload) })
       .then((r) => r.json()).catch(() => ({ ok: false }));
 
-  // 1. Aria's first prospecting run (real businesses for their ICP + drafts), comped.
-  const run = await call('/api/agent/run', { taskId, activation: true });
-
-  // 2. If they uploaded a past-customer list, also draft the reactivation batch (comped).
-  let reactivation = null;
+  // Does the owner have an uploaded past-customer list to also reactivate? (Read it now,
+  // while we still have the request context, for the background kick below.)
   const { count: reactCount } = await supabase
     .from('leads').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('origin', 'reactivation');
-  if ((reactCount ?? 0) > 0) {
-    reactivation = await call('/api/reactivation/draft', { activation: true });
-  }
 
-  // Stamp activated_at AFTER the comped runs (so the comp was valid during them) — this
-  // closes the one-time comp window and marks day-one done.
-  await supabase.from('companies').update({ activated_at: new Date().toISOString() }).eq('id', companyId);
-
-  return Response.json({
-    ok: true,
-    leads: run?.created_this_run?.leads ?? 0,
-    drafts: run?.created_this_run?.drafts ?? 0,
-    reactivationDrafts: reactivation?.created_this_run?.drafts ?? 0,
-    charged: 0,
+  // ASYNC KICK — ack the browser immediately (no multi-minute hang) and fire Aria's first
+  // run in the background via after(). The run ACKS fast then researches async within its
+  // OWN maxDuration; it stamps companies.activated_at itself ON SUCCESS and releases this
+  // act_<company> claim on failure/timeout — so activate no longer stamps or cleans up. Both
+  // engines stay comped because activated_at remains null until the run finishes. The
+  // dashboard shows "Aria's working…" and polls activation status + lead count, so leads
+  // appear as they're written rather than all-or-nothing at the end.
+  after(async () => {
+    await call('/api/agent/run', { taskId, activation: true });
+    if ((reactCount ?? 0) > 0) await call('/api/reactivation/draft', { activation: true });
   });
+
+  return Response.json({ ok: true, activating: true });
 }

@@ -59,18 +59,30 @@ export default function Dashboard() {
   const [empStats, setEmpStats] = useState<Record<string, EmployeeStat>>({});
   const [avgDeal, setAvgDeal] = useState<number | null>(null);
   const [activating, setActivating] = useState(false);
+  const [activatingLeads, setActivatingLeads] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Day-one activation: the first time the owner reaches the dashboard, the team
-      // goes to work automatically (real research + drafts, comped). Show a working
-      // state while it runs, then render the results — never an empty app.
+      // Day-one activation: the first time the owner reaches the dashboard, the team goes to
+      // work automatically (real research + drafts, comped). The kick returns immediately and
+      // the run works in the background, so we show a working state and POLL until it stamps
+      // activated_at — surfacing leads as they're written, never an empty app or a frozen tab.
       try {
         const st = await getActivationStatus();
         if (!cancelled && st.onboarded && !st.activated) {
           setActivating(true);
           await fetch('/api/onboard/activate', { method: 'POST' }).catch(() => {});
+          const deadline = Date.now() + 6 * 60 * 1000; // the background run can take up to ~4.5min
+          while (!cancelled && Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 4000));
+            if (cancelled) return;
+            try {
+              const s2 = await getActivationStatus();
+              setActivatingLeads(s2.leadCount);
+              if (s2.activated) break;
+            } catch { /* transient — keep polling */ }
+          }
           if (cancelled) return;
           setActivating(false);
         }
@@ -138,6 +150,11 @@ export default function Dashboard() {
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             Aria is researching and scoring your first real leads and drafting outreach for your review. This takes a minute — no need to wait here, it&rsquo;ll be ready when you land on your dashboard.
           </p>
+          {activatingLeads > 0 && (
+            <p style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent)', marginTop: '14px' }}>
+              {activatingLeads} real lead{activatingLeads === 1 ? '' : 's'} found so far…
+            </p>
+          )}
         </div>
       </div>
     );
