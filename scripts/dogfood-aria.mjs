@@ -43,10 +43,12 @@ function postLong(path, body, cookie) {
 (async () => {
   if (!URL_ || !ANON) { console.error('Missing Supabase env.'); process.exit(1); }
 
-  // Guard 1: migrations applied? (create_lead writes leads.relationship)
+  // Guard 1: note migration state. create_lead is resilient to a missing relationship
+  // column, so the prospecting core (research → score → draft) runs on the base schema;
+  // only the warm-signal / inbound / reactivation features need the June-6 migrations.
   const probe = createClient(URL_, ANON);
   const { error: colErr } = await probe.from('leads').select('relationship').limit(1);
-  if (colErr) { console.error('BLOCKED: June-6 migrations not applied (leads.relationship missing). Run them in the SQL Editor first — a run now would hard-fail on insert. No spend.'); process.exit(2); }
+  if (colErr) log('NOTE: June-6 migrations not fully applied — prospecting core will run, but warm-signal/inbound features are not exercised. Apply them for the full pipeline.');
 
   // Guard 2: dev server reachable?
   try { await new Promise((res, rej) => { const r = http.get(BASE, () => res()); r.on('error', rej); r.setTimeout(4000, () => r.destroy(new Error('timeout'))); }); }

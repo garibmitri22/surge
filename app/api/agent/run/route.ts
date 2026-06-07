@@ -139,9 +139,6 @@ async function executeTool(
       next_action: String(input.next_action ?? 'Review and draft outreach'),
       next_action_at: (input.next_action_at as string) || todayISO(),
       notes: (input.notes as string) ?? null,
-      // Active-advertiser signal (reuses the relationship column) → drives the
-      // post-click "speed-to-lead leak" angle in the cold-email writer.
-      relationship: (input.ad_signal as string)?.trim() || null,
     };
     if (!row.business_name || !row.source_url) return 'ERROR: business_name and source_url are required (real data only).';
     const { data, error } = await supabase.from('leads').insert(row).select('id').single();
@@ -150,6 +147,13 @@ async function executeTool(
       return `ERROR creating lead: ${error.message}`;
     }
     counters.leads++;
+    // Active-advertiser signal → the post-click "speed-to-lead leak" angle in the writer.
+    // Best-effort: stored in the relationship column (reactivation_migration). If that
+    // column isn't live yet, skip it — one additive feature must never break lead creation.
+    const adSignal = (input.ad_signal as string)?.trim();
+    if (adSignal && data?.id) {
+      await supabase.from('leads').update({ relationship: adSignal }).eq('id', data.id).then(() => {}, () => {});
+    }
     return `Created lead. lead_id: ${data!.id} — "${row.business_name}" (score ${row.score}). Use this lead_id for draft_email.`;
   }
 
