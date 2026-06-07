@@ -217,7 +217,11 @@ async function executeTool(
     // leaves a {{CTA_URL}} placeholder; we swap in the real link (or append one).
     try { const cta = await createTrackedLink(supabase, leadId, companyId); body = embedTrackedCta(body, cta); } catch { /* couldn't allocate a code — leave copy as-is */ }
 
-    const draftRow = {
+    // Insert the core draft first (never block a real draft on an additive column), then set
+    // the A/B variant best-effort — same pattern as leads.relationship. Robust whether or not
+    // the ab_variant migration is live (Supabase returns PGRST204, not 42703, for a missing
+    // column, so an error-code guard is fragile — this avoids the guess entirely).
+    const { data: inserted, error } = await supabase.from('lead_drafts').insert({
       lead_id: leadId,
       company_id: companyId,
       channel: 'email',
@@ -225,12 +229,11 @@ async function executeTool(
       subject,
       body,
       approval_status: 'pending',
-    };
-    // Store the A/B variant — but if that column isn't live yet (migration not applied),
-    // retry without it. An additive column must never block a real draft from being saved.
-    let { error } = await supabase.from('lead_drafts').insert({ ...draftRow, ab_variant: abVariant });
-    if (error && error.code === '42703') ({ error } = await supabase.from('lead_drafts').insert(draftRow));
+    }).select('id').single();
     if (error) return `ERROR creating draft: ${error.message}`;
+    if (abVariant && inserted?.id) {
+      await supabase.from('lead_drafts').update({ ab_variant: abVariant }).eq('id', inserted.id).then(() => {}, () => {});
+    }
     await supabase.from('leads').update({ status: 'drafted' }).eq('id', leadId).eq('company_id', companyId);
     counters.drafts++;
     return `Draft saved (pending approval). Nothing was sent.`;
@@ -499,8 +502,21 @@ Active-advertiser signal: ${adSignal || 'none (not a verified advertiser)'}`;
   const convo: Anthropic.MessageParam[] = [{ role: 'user', content: 'Begin the prospecting run now.' }];
   let reported = false;
   const runStartedAt = new Date().toISOString(); // to scope post-loop drafting to THIS run's leads
+  // Wall-clock research budget — the REAL guarantee the run fits the serverless ceiling no
+  // matter how slow individual web searches are (they vary ~27–47s/iter, so an iteration count
+  // alone can't bound time). Reserve ~110s for one trailing iteration + parallel drafting +
+  // completion. On Pro (MAX_RUN_SECONDS=300) → ~190s of research; the iteration ceiling + leadCap
+  // are now just backstops. (Dev defaults to 60 → set MAX_RUN_SECONDS=300 locally to mirror Pro.)
+  // Only enforce the budget when there's a real (Pro) ceiling to divide up — otherwise a small
+  // ceiling (Hobby 60 / unset) would reserve everything and starve research to ~0 leads. Below
+  // the threshold we fall back to the iteration cap (and accept Hobby's hard 60s kill).
+  const runCeilingSec = Number(process.env.MAX_RUN_SECONDS) || 60;
+  const researchDeadlineMs = runCeilingSec >= 150
+    ? Date.now() + (runCeilingSec - 110) * 1000   // Pro: ~190s research, ~110s for trailing iter + drafting + finish
+    : Infinity;                                    // Hobby/unset: no time budget, rely on the iteration ceiling
 
   for (let i = 0; i < maxIterations; i++) {
+      if (Date.now() > researchDeadlineMs) break; // time budget spent — stop researching, go draft
       const resp = await client.messages.create({
         model: RESEARCH_MODEL,
         max_tokens: 8192, // room for a big batch of create_lead calls in one turn (see max_tokens handling below)
@@ -598,8 +614,10 @@ Active-advertiser signal: ${adSignal || 'none (not a verified advertiser)'}`;
       await supabase.from('companies').update({ activated_at: new Date().toISOString() }).is('activated_at', null).eq('id', companyId);
     }
    } catch (err) {
-    // Surface the failure to Sentry (no-op unless DSN is set in prod) so timeouts and
-    // API errors are visible in prod instead of silently leaving a flat pipeline.
+    // Log to the server (Vercel function logs) AND Sentry — a swallowed run failure (e.g. an
+    // Anthropic 400/credit error, a timeout) must be visible, not a silently flat pipeline.
+    console.error('[agent/run] background run failed:', err instanceof Error ? err.message : err);
+    // Sentry capture (no-op unless DSN is set in prod).
     Sentry.captureException(err, {
       tags: { route: 'agent/run', activation: String(activationRun), topup: String(topupRun) },
       extra: { taskId, companyId, leadsThisRun: counters.leads, draftsThisRun: counters.drafts },
