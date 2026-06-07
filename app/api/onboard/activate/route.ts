@@ -1,9 +1,10 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { after } from 'next/server';
 
-// Env-gated like the run route (Hobby caps at 60, Pro honors up to 300). This endpoint only
-// ACKS + kicks the run in after(), so it returns in well under a second regardless.
-export const maxDuration = Number(process.env.MAX_RUN_SECONDS) || 60;
+// 300s (Pro ceiling). MUST be a static literal — a computed value fails Next's build-time
+// segment-config validation. This endpoint only ACKs + kicks the run in after(), so it
+// returns in well under a second regardless; the long ceiling just covers the after() kick.
+export const maxDuration = 300;
 
 // A claim older than this (with activated_at still null) means the prior activation run was
 // killed before it could finish or clean up — safe to reclaim and retry. Set above the 60s

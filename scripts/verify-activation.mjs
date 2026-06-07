@@ -39,8 +39,8 @@ check('comped run charges 0 hours', /\(thin \|\| comped\) \? 0/.test(run));
 check('reactivation draft is also comped during activation', /comped/.test(react) && /\(drafts === 0 \|\| comped\)/.test(react));
 
 console.log('\n--- 4b. Duration env-gated for Pro (MAX_RUN_SECONDS) ---');
-check('run route maxDuration is env-gated (default 60 → 300 on Pro)', /export const maxDuration = Number\(process\.env\.MAX_RUN_SECONDS\) \|\| 60/.test(run));
-check('activate route maxDuration is env-gated (MAX_RUN_SECONDS)', /export const maxDuration = Number\(process\.env\.MAX_RUN_SECONDS\) \|\| 60/.test(activate));
+check('run route maxDuration = 300 (static literal — Pro ceiling)', /export const maxDuration = 300/.test(run));
+check('activate route maxDuration = 300 (static literal)', /export const maxDuration = 300/.test(activate));
 check('activation scopes the loop (ACTIVATION_MAX_ITERATIONS set, tight)', /const ACTIVATION_MAX_ITERATIONS = \d+\b/.test(run) && /activationRun \? ACTIVATION_MAX_ITERATIONS/.test(run));
 check('activation targets ~10–12 leads; manual capped at ~12–15 (not 30–50)', /activationRun \? '10–12'/.test(run) && / : '12–15'/.test(run) && /const MAX_ITERATIONS = \d+\b/.test(run));
 check('runs are time-bounded: tight loop ceiling + deterministic lead-cap early-break', /const leadCap =/.test(run) && /counters\.leads >= leadCap/.test(run));
@@ -73,7 +73,7 @@ check('exhaustion → expansion upsell surfaced (not silent churn)',
 check('top-up DEBITS hours (charged, not comped) except is_internal',
   /getBalance/.test(cron) && /c\.is_internal/.test(cron) && /topup: true/.test(cron) && !/topup.*comped|comped.*topup/i.test(run));
 check('top-up is scheduled (its own cron pass, offset from the heartbeat)',
-  /\/api\/cron\/topup/.test(vercel) && /export const maxDuration = 60/.test(cron));
+  /\/api\/cron\/topup/.test(vercel) && /export const maxDuration = 300/.test(cron));
 
 console.log('\n--- 5. Live end-to-end (RUN_ACTIVATION=1; real Anthropic spend) ---');
 if (process.env.RUN_ACTIVATION !== '1') {

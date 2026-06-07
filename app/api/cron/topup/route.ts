@@ -21,7 +21,7 @@ import { DAILY_TOPUP_TARGET, OPEN_LEAD_CEILING } from '@/lib/usage-config.mjs';
 //     and skips; the target tapers as month-end hours shrink. Internal accounts bypass.
 //   • Market-exhaustion exit lives in the run itself (mostly-duplicate run → upsell nudge).
 
-export const maxDuration = 60;
+export const maxDuration = 300; // Pro ceiling — the per-company top-up does real research
 
 // OPEN_LEAD_CEILING + DAILY_TOPUP_TARGET come from lib/usage-config.mjs (single source).
 const TIME_BUDGET_MS = 45_000;  // leave headroom under the 60s wall; the rest wait for tomorrow

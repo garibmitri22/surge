@@ -21,9 +21,9 @@ const cron     = read('app/api/cron/topup/route.ts');
 const cfg      = read('lib/usage-config.mjs');
 const vercel   = read('vercel.json');
 
-console.log('--- 1. maxDuration env-gated (MAX_RUN_SECONDS, default 60 → 300 on Pro) ---');
-check('run route maxDuration is env-gated', /export const maxDuration = Number\(process\.env\.MAX_RUN_SECONDS\) \|\| 60/.test(run));
-check('activate route maxDuration is env-gated', /export const maxDuration = Number\(process\.env\.MAX_RUN_SECONDS\) \|\| 60/.test(activate));
+console.log('--- 1. maxDuration = 300 static literal (Pro ceiling) ---');
+check('run route maxDuration = 300', /export const maxDuration = 300/.test(run));
+check('activate route maxDuration = 300', /export const maxDuration = 300/.test(activate));
 
 console.log('\n--- 2. Activation/first run scoped to finish under the cap ---');
 check('activation caps the loop (ACTIVATION_MAX_ITERATIONS set, tight)', /const ACTIVATION_MAX_ITERATIONS = \d+\b/.test(run));
@@ -42,7 +42,7 @@ check('duplicate skips are counted (market-exhaustion signal)', /counters\.dups\
 check('market-tapped upsell logged once/day on a mostly-dup top-up', /topup-exhaust-\$\{companyId\}/.test(run) && /counters\.dups > 0 && counters\.leads < topupTarget \/ 2/.test(run));
 
 console.log('\n--- 4. Daily top-up — cron orchestrator side ---');
-check('cron route sets maxDuration = 60', /export const maxDuration = 60/.test(cron));
+check('cron route sets maxDuration = 300', /export const maxDuration = 300/.test(cron));
 check('cron is CRON_SECRET-guarded + service-role', /authorized\(request\)/.test(cron) && /SUPABASE_SERVICE_ROLE_KEY/.test(cron));
 check('only tops up activated, onboarded companies', /onboarding_complete.*true/.test(cron) && /not\('activated_at', 'is', null\)/.test(cron));
 check('ceiling on UN-WORKED leads (OPEN_LEAD_CEILING = 40, centralized)', /export const OPEN_LEAD_CEILING = 40/.test(cfg) && /not\('status', 'in'/.test(cron) && /OPEN_LEAD_CEILING/.test(cron));

@@ -13,10 +13,12 @@ import { embedTrackedCta } from '@/lib/email.mjs';
 import { after } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 
-// Longest run window, ENV-GATED so one value drives both plans: Hobby caps at 60 (and
-// ignores anything higher), Pro honors up to 300. Set MAX_RUN_SECONDS=300 in Vercel (Pro)
-// — the ~4.5min real research loop (≈270s) then fits cleanly; default 60 stays Hobby-safe.
-export const maxDuration = Number(process.env.MAX_RUN_SECONDS) || 60;
+// Function run window = 300s (the Pro ceiling surge-hq is on). MUST be a STATIC LITERAL:
+// Next.js validates route-segment config exports at build ("Collecting page data") and a
+// computed value like Number(process.env.X) fails with "Invalid segment configuration export"
+// (webpack/Vercel catches it even though local Turbopack doesn't). The run's wall-clock
+// research budget below is matched to this 300s ceiling.
+export const maxDuration = 300;
 
 // Loop ceiling = the HARD wall-time bound. Web-search research turns run ~25–40s each, so the
 // iteration count, not lead count, drives wall-time. 6 keeps even a slow run (≈40s/iter →
@@ -507,13 +509,10 @@ Active-advertiser signal: ${adSignal || 'none (not a verified advertiser)'}`;
   // alone can't bound time). Reserve ~110s for one trailing iteration + parallel drafting +
   // completion. On Pro (MAX_RUN_SECONDS=300) → ~190s of research; the iteration ceiling + leadCap
   // are now just backstops. (Dev defaults to 60 → set MAX_RUN_SECONDS=300 locally to mirror Pro.)
-  // Only enforce the budget when there's a real (Pro) ceiling to divide up — otherwise a small
-  // ceiling (Hobby 60 / unset) would reserve everything and starve research to ~0 leads. Below
-  // the threshold we fall back to the iteration cap (and accept Hobby's hard 60s kill).
-  const runCeilingSec = Number(process.env.MAX_RUN_SECONDS) || 60;
-  const researchDeadlineMs = runCeilingSec >= 150
-    ? Date.now() + (runCeilingSec - 110) * 1000   // Pro: ~190s research, ~110s for trailing iter + drafting + finish
-    : Infinity;                                    // Hobby/unset: no time budget, rely on the iteration ceiling
+  // Wall-clock research budget matched to the 300s maxDuration: reserve ~110s for the trailing
+  // iteration + parallel drafting + completion → ~190s of research. This is the real guarantee
+  // the run finishes under 300s regardless of per-iteration web-search variance (~27–47s).
+  const researchDeadlineMs = Date.now() + 190 * 1000;
 
   for (let i = 0; i < maxIterations; i++) {
       if (Date.now() > researchDeadlineMs) break; // time budget spent — stop researching, go draft
