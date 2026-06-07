@@ -2,8 +2,10 @@ import Anthropic from '@anthropic-ai/sdk';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
-import { buildSystemPrompt, toolsFor, isRequiredSetMet, PROFILE_MEMORY_TYPES } from '@/lib/chat-prompt.mjs';
+import { buildSystemPrompt, toolsFor, isRequiredSetMet, PROFILE_MEMORY_TYPES, summarizeLeadState, summarizeChannels } from '@/lib/chat-prompt.mjs';
 import { allowanceForPlan } from '@/lib/pricing.mjs';
+import { isConfigured as isEmailConfigured } from '@/lib/email.mjs';
+import { resolveCanonicalCompanyId } from '@/lib/company-resolve';
 import { extractMemories } from '@/lib/memory-extract.mjs';
 
 const MODEL = 'claude-sonnet-4-6';
@@ -14,23 +16,17 @@ const MODEL = 'claude-sonnet-4-6';
 
 type SupabaseServer = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
-// Ordered by created_at so a not-yet-complete DRAFT row (Atlas intake writes to it
-// as it goes) is found too — completed_at is null on a draft.
-async function getCompanyId(supabase: SupabaseServer): Promise<string | null> {
-  const { data } = await supabase
-    .from('companies')
-    .select('id')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data?.id ?? null;
+// The user's ONE canonical company — deterministic + user_id-scoped (lib/company-resolve).
+// Resolves a not-yet-complete DRAFT during intake too (no completed row yet → the draft).
+async function getCompanyId(supabase: SupabaseServer, userId: string): Promise<string | null> {
+  return resolveCanonicalCompanyId(supabase, userId);
 }
 
-// Onboarding v2: intake needs a company row to write to BEFORE onboarding is
-// complete. Reuse the user's existing row (draft or completed) or create a fresh
-// draft. onboarding_complete stays false until complete_onboarding flips it.
+// Onboarding v2: intake needs a company row to write to BEFORE onboarding is complete.
+// REUSE the user's existing canonical row (draft or completed) — NEVER create a second.
+// A restart reuses+resets the same row instead of spawning orphan drafts.
 async function getOrCreateDraftCompany(supabase: SupabaseServer, userId: string): Promise<string | null> {
-  const existing = await getCompanyId(supabase);
+  const existing = await getCompanyId(supabase, userId);
   if (existing) return existing;
   const { data, error } = await supabase
     .from('companies')
@@ -254,7 +250,7 @@ export async function POST(request: Request) {
   const intakeMode = body.intakeMode === true && employeeId === 'atlas';
   const companyId = intakeMode
     ? await getOrCreateDraftCompany(supabase, user.id)
-    : await getCompanyId(supabase);
+    : await getCompanyId(supabase, user.id);
   if (!companyId) {
     return new Response(intakeMode ? 'Could not start onboarding' : 'Complete onboarding first', { status: 400 });
   }
@@ -307,26 +303,34 @@ export async function POST(request: Request) {
   // ---- Chief of Staff (Atlas) sees the WHOLE board, not just his own work ----
   const isChiefOfStaff = employee.role === 'Chief of Staff' || employeeId === 'atlas';
   let allTasks: { title: string; status: string; project: string; due_date: string; assignee_id: string }[] = [];
-  let leadPipeline: { total: number; qualified: number; drafted: number; pendingDrafts: number; overdue: number } | null = null;
+  let leadPipeline: ReturnType<typeof summarizeLeadState> | null = null;
+  let channels: ReturnType<typeof summarizeChannels> | null = null;
   let kpiSnapshot: { employee: string; open: number; done: number }[] = [];
   let hoursStatus: { balance: number; allowance: number; low: boolean } | null = null;
   if (isChiefOfStaff) {
-    const [{ data: everyTask }, { data: leadRows }, { data: draftRows }] = await Promise.all([
+    // Real system state. outreachSent comes from email_sends.status='sent' — the SAME
+    // source the dashboard (getWorkforceStats) uses — so Atlas's "how many sent" agrees.
+    const [{ data: everyTask }, { data: leadRows }, { data: draftRows }, sentRes] = await Promise.all([
       supabase.from('tasks').select('title, status, project, due_date, assignee_id').eq('company_id', companyId).order('sort_order', { ascending: false }).limit(200),
-      supabase.from('leads').select('status, next_action_at').eq('company_id', companyId).limit(1000),
+      supabase.from('leads').select('status, next_action_at, click_count').eq('company_id', companyId).limit(1000),
       supabase.from('lead_drafts').select('approval_status').eq('company_id', companyId).limit(1000),
+      supabase.from('email_sends').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'sent'),
     ]);
     const tasksAll = (everyTask ?? []) as typeof allTasks;
     allTasks = tasksAll.filter((t) => t.status !== 'completed');
-    const leads = (leadRows ?? []) as { status: string; next_action_at: string | null }[];
-    const now = Date.now();
-    leadPipeline = {
-      total: leads.length,
-      qualified: leads.filter((l) => l.status === 'qualified').length,
-      drafted: leads.filter((l) => l.status === 'drafted').length,
-      pendingDrafts: ((draftRows ?? []) as { approval_status: string }[]).filter((d) => d.approval_status === 'pending').length,
-      overdue: leads.filter((l) => l.next_action_at && new Date(l.next_action_at).getTime() < now && l.status !== 'disqualified' && l.status !== 'meeting').length,
-    };
+    const leads = (leadRows ?? []) as { status: string; next_action_at: string | null; click_count: number | null }[];
+    const drafts = (draftRows ?? []) as { approval_status: string }[];
+    leadPipeline = summarizeLeadState({ leads, drafts, sentCount: sentRes.count ?? 0, now: Date.now() });
+
+    // Channel capability from REAL config (not assumptions): email = provider key live +
+    // CAN-SPAM address on file; SMS = a number + 10DLC registered.
+    const co = (company as Record<string, unknown> | null) ?? {};
+    channels = summarizeChannels({
+      emailConfigured: isEmailConfigured(),
+      physicalAddress: (co.physical_address as string) ?? '',
+      twilioNumber: (co.twilio_number as string) ?? '',
+      tendlcStatus: (co.tendlc_status as string) ?? '',
+    });
     const byEmp: Record<string, { open: number; done: number }> = {};
     for (const t of tasksAll) {
       const e = t.assignee_id || 'unknown';
@@ -360,6 +364,7 @@ export async function POST(request: Request) {
     isChiefOfStaff,
     allTasks,
     leadPipeline,
+    channels,
     kpiSnapshot,
     hoursStatus,
     intakeMode,
@@ -491,7 +496,7 @@ export async function GET(request: Request) {
   const employeeId = new URL(request.url).searchParams.get('employeeId') || '';
   if (!employeeId) return Response.json({ conversationId: null, messages: [] });
 
-  const companyId = await getCompanyId(supabase);
+  const companyId = await getCompanyId(supabase, user.id);
   if (!companyId) return Response.json({ conversationId: null, messages: [] });
 
   const { data: conv } = await supabase

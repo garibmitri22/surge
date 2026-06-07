@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { resolveCanonicalCompanyId } from '@/lib/company-resolve';
 import { after } from 'next/server';
 
 // 300s (Pro ceiling). MUST be a static literal — a computed value fails Next's build-time
@@ -23,8 +24,12 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response('Unauthorized', { status: 401 });
 
-  const { data: company } = await supabase
-    .from('companies').select('id, onboarding_complete, activated_at').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  // Resolve the user's ONE canonical company (not "most recent" — a stale re-onboarding
+  // draft must never be the one we activate).
+  const canonicalId = await resolveCanonicalCompanyId(supabase, user.id);
+  const { data: company } = canonicalId
+    ? await supabase.from('companies').select('id, onboarding_complete, activated_at').eq('id', canonicalId).maybeSingle()
+    : { data: null };
   if (!company) return Response.json({ ok: false, reason: 'no_company' }, { status: 400 });
   if (!company.onboarding_complete) return Response.json({ ok: false, reason: 'not_onboarded' }, { status: 400 });
   if (company.activated_at) return Response.json({ ok: true, already: true });

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getCompanyProfile, isOnboardingComplete, getUserDisplay } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
-import { SINGLE_LABEL } from '@/lib/pricing.mjs';
+import { FOUNDING_LABEL } from '@/lib/pricing.mjs';
 
 const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: '⬡' },
@@ -82,7 +82,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             <span style={{ fontSize: '16px', color: 'var(--accent)' }}>+</span>
             <div>
               <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--accent)' }}>Hire an Employee</p>
-              <p style={{ fontSize: '10px', color: 'var(--text-dim)' }}>{SINGLE_LABEL}/mo per hire</p>
+              <p style={{ fontSize: '10px', color: 'var(--text-dim)' }}>{FOUNDING_LABEL}/mo · pay after booked</p>
             </div>
           </div>
         </Link>

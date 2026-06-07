@@ -50,6 +50,7 @@ function scoreEmail(label, subject, body, ctaUrl) {
   check('has the unsubscribe footer (CAN-SPAM)', /Unsubscribe/i.test(fullHtml) && /Unsubscribe/i.test(fullText) && /unsubscribe/i.test(footer.html));
   check('body word count ~60–130', wc >= 55 && wc <= 135, `${wc} words`);
   check('no spam-trigger words in the body', bodyHits.length === 0, bodyHits.join(', ') || 'clean');
+  check('no dead pricing — no $399/$999 or per-seat menu', !/\$399|\$999|per-seat|per-employee/i.test(`${subject} ${body}`));
   return { html: fullHtml, text: fullText };
 }
 
@@ -60,7 +61,7 @@ const sampleSubject = 'quick thought on your Austin roofing leads';
 const sampleBody = [
   "Noticed Lone Star Roofing has been running the same storm-damage ad in Austin for a few months — you're clearly spending real money to make the phone ring.",
   "Here's the leak I'd worry about: most of those clicks call or fill the form, then wait. A lead answered in 5 minutes books far more often than one answered in an hour, and after hours they just go cold.",
-  "Surge puts an AI rep on every new lead the second it lands — qualifies, replies, and books the meeting — for $399/mo (or a full team at $999/mo), versus a $60k+ hire.",
+  "Surge puts an AI rep on every new lead the second it lands, and rebooks the quotes you already have. You pay nothing until appointments land on your calendar.",
   "If that's worth 15 minutes, grab a time here: {{CTA_URL}}",
   "An AI wrote this. You read the whole thing anyway. That's what I'd do for every lead you get.",
 ].join('\n\n');
@@ -80,6 +81,17 @@ try {
   }
 } catch (e) {
   console.log(`\n--- Most recent REAL draft from the DB ---\n  SKIP  could not read drafts (${e instanceof Error ? e.message : 'error'})`);
+}
+
+// 2b) Positioning: the writer prompt + personas must not resurrect the dead pricing.
+console.log('\n--- Positioning: one offer, no dead $399/$999 ---');
+{
+  const run = readFileSync('app/api/agent/run/route.ts', 'utf8');
+  const pricing = readFileSync('lib/pricing.mjs', 'utf8');
+  const personas = ['aria', 'nova', 'opus'].map((p) => readFileSync(`personas/${p}.md`, 'utf8')).join('\n');
+  check('pricing.mjs no longer exports $399/$999 constants', !/PRICE_SINGLE\s*=\s*399/.test(pricing) && !/PRICE_TEAM\s*=\s*999/.test(pricing) && /PRICE_FOUNDING\s*=\s*1500/.test(pricing));
+  check('Aria writer prompt: one offer, do-not-lead-with-price, no $399/$999', /DO NOT LEAD WITH PRICE/.test(run) && /OFFER_NAME/.test(run) && /FOUNDING_LABEL/.test(run) && !/\$\{PRICE_SINGLE\}|\$\{PRICE_TEAM\}|\$399|\$999/.test(run));
+  check('personas carry no dead $399/$999 tokens or "Hire the Team" menu', !/\{\{PRICE_SINGLE\}\}|\{\{PRICE_TEAM\}\}|Hire the Team|\$399|\$999/.test(personas));
 }
 
 // 3) Optional: real send to mail-tester.com for an external spam score.

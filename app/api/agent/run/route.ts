@@ -5,8 +5,9 @@ import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/supabase';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { resolveCanonicalCompanyId } from '@/lib/company-resolve';
 import { estCostUsd, RESEARCH_MODEL, WRITING_MODEL, DAILY_TOPUP_TARGET } from '@/lib/usage-config.mjs';
-import { injectPricing, PRICE_SINGLE, PRICE_TEAM, PRICE_HUMAN_ANCHOR, estimateHours, formatHours } from '@/lib/pricing.mjs';
+import { injectPricing, OFFER_NAME, FOUNDING_LABEL, PRICE_GATE, estimateHours, formatHours } from '@/lib/pricing.mjs';
 import { gateWork, debitHours } from '@/lib/hours.mjs';
 import { createTrackedLink } from '@/lib/sign.mjs';
 import { embedTrackedCta } from '@/lib/email.mjs';
@@ -63,9 +64,8 @@ async function mapBounded<T, R>(items: T[], limit: number, fn: (item: T) => Prom
 
 type SupabaseServer = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
-async function getCompanyId(supabase: SupabaseServer): Promise<string | null> {
-  const { data } = await supabase.from('companies').select('id').order('completed_at', { ascending: false }).limit(1).maybeSingle();
-  return data?.id ?? null;
+async function getCompanyId(supabase: SupabaseServer, userId: string | null): Promise<string | null> {
+  return resolveCanonicalCompanyId(supabase, userId);
 }
 
 async function findOrCreateConversation(supabase: SupabaseServer, companyId: string, employeeId: string, title: string): Promise<string> {
@@ -277,6 +277,7 @@ export async function POST(request: Request) {
   const isCron = !!cronSecret && (request.headers.get('authorization') || '') === `Bearer ${cronSecret}`;
 
   let supabase: SupabaseServer;
+  let userId: string | null = null;
   if (isCron) {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!serviceKey) return new Response('Service role not configured', { status: 503 });
@@ -285,14 +286,15 @@ export async function POST(request: Request) {
     supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return new Response('Unauthorized', { status: 401 });
+    userId = user.id;
   }
 
   const taskId = (body.taskId || '').trim();
   if (!taskId) return new Response('taskId required', { status: 400 });
 
   // The cron passes the company explicitly (no session to infer it from); an owner run
-  // infers their own company from the session.
-  const companyId = isCron ? ((body.companyId || '').trim() || null) : await getCompanyId(supabase);
+  // resolves their ONE canonical company (deterministic + user_id-scoped).
+  const companyId = isCron ? ((body.companyId || '').trim() || null) : await getCompanyId(supabase, userId);
   if (!companyId) return new Response(isCron ? 'companyId required' : 'Complete onboarding first', { status: 400 });
 
   const { data: task } = await supabase
@@ -435,7 +437,7 @@ SUBJECT (one line):
 BODY — keep it UNDER ~120 words, in this structure, each part its own short paragraph separated by a BLANK LINE (so it renders as real paragraphs, not a wall of text):
 1. PERSONALIZED FIRST LINE — open with the specific, real thing you researched about THEM (their business, city, a signal). No "Hi, I hope this finds you well." Earn the next line.
 2. THE LEAK / PAIN — name the concrete gap you can credibly fix (for advertisers: leads going cold after the click; otherwise the relevant speed-to-lead / follow-up gap). Be honest about what you can and can't see.
-3. THE OFFER — Surge: a $${PRICE_SINGLE}/mo AI employee, or the full team at $${PRICE_TEAM}/mo run by a Chief of Staff — vs a ${PRICE_HUMAN_ANCHOR} human hire. You book qualified meetings; you never "close deals".
+3. THE OFFER — Surge is ONE done-for-you AI sales team (the ${OFFER_NAME}) — NOT a menu of individual "AI employees" or per-seat plans. DO NOT LEAD WITH PRICE in a cold email: sell the OUTCOME — more booked jobs from the customers they already have, every new lead answered in minutes — and make the ask a 15-minute look, never a checkout. If price surfaces at all: ${FOUNDING_LABEL}/mo founding rate, and ${PRICE_GATE} Never quote per-employee, per-seat, or any old plan pricing. You book qualified meetings; you never "close deals".
 4. ONE CLEAR ASK — a single CTA line containing the literal placeholder {{CTA_URL}} exactly once (e.g. "If that's worth 15 minutes, grab a time here: {{CTA_URL}}"). No other link, no second ask.
 
 After the body, the system appends the signature automatically — do NOT write a sign-off or signature yourself.

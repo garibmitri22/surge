@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { estCostUsd, WRITING_MODEL } from '@/lib/usage-config.mjs';
-import { injectPricing, PRICE_SINGLE } from '@/lib/pricing.mjs';
+import { injectPricing } from '@/lib/pricing.mjs';
 import { gateWork, debitHours, estimateHours } from '@/lib/hours.mjs';
 import { embedTrackedCta } from '@/lib/email.mjs';
 import { createTrackedLink } from '@/lib/sign.mjs';
@@ -93,7 +93,7 @@ RULES: under 90 words, warm and specific, reference the relationship ("it's been
           model: WRITING_MODEL, max_tokens: 600,
           system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
           tools: [emit], tool_choice: { type: 'tool', name: 'emit_email' },
-          messages: [{ role: 'user', content: `Write ONE reactivation email for this past contact (offer them a reason to come back; we're worth more than a ${'$' + PRICE_SINGLE} tool but keep it human).\n\n${facts}` }],
+          messages: [{ role: 'user', content: `Write ONE reactivation email for this past contact (offer them a reason to come back — lead with the relationship and the outcome, never with price; keep it human).\n\n${facts}` }],
         });
         await recordUsage(resp.usage);
         const block = resp.content.find((b) => b.type === 'tool_use') as Anthropic.ToolUseBlock | undefined;

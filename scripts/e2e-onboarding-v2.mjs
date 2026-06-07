@@ -96,7 +96,7 @@ async function streamChat(message, intakeMode = true) {
   const mem = (kind, title, content) => ({ id: 'm' + now + Math.floor(Math.random() * 1e6), company_id: companyId, type: kind, title, content, tags: [kind], updated_at: new Date().toISOString().split('T')[0], sort_order: now });
   const seed = [
     mem('icp', 'ICP', 'Founders at 1-20 person SaaS firms; not enterprise.'),
-    mem('offer', 'Offer', 'AI workforce, $999 team / $399 single.'),
+    mem('offer', 'Offer', 'Done-for-you AI Growth Engine — $1,500/mo founding rate; pay nothing until qualified appointments are booked.'),
     mem('voice', 'Voice', 'Direct, calm, no buzzwords.'),
     mem('goal', 'Goal', 'Land first 10 paying customers in 90 days.'),
   ];

@@ -6,7 +6,7 @@ import { HIRE_CATALOG } from '@/lib/departments.mjs';
 import { getMyCompanyId } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { EmployeeAvatar } from '@/components/EmployeeAvatar';
-import { SINGLE_LABEL, TEAM_LABEL } from '@/lib/pricing.mjs';
+import { FOUNDING_LABEL } from '@/lib/pricing.mjs';
 
 const EMP_COLOR: Record<string, string> = { aria: '#a78bfa', nova: '#34d399', opus: '#60a5fa', atlas: '#f59e0b' };
 
@@ -64,7 +64,7 @@ export default function HirePage() {
       <div style={{ marginBottom: '6px' }}>
         <h1 style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)' }}>Build your team</h1>
         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px', maxWidth: '640px', lineHeight: 1.5 }}>
-          Staff your company department by department. {SINGLE_LABEL}/mo per employee, or the whole team for {TEAM_LABEL}/mo — Atlas, your Chief of Staff, is included.
+          One done-for-you AI sales team — {FOUNDING_LABEL}/mo founding rate, and you pay nothing until qualified appointments are booked. Atlas, your Chief of Staff, is included.
         </p>
       </div>
 

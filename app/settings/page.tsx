@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCompanyProfile, resetOnboarding, getHoursSummary, getMyCompanyId, getAvgDealValue, setAvgDealValue, type CompanyProfile, type HoursSummary } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
-import { SINGLE_LABEL, TEAM_LABEL, formatHours } from '@/lib/pricing.mjs';
+import { FOUNDING_LABEL, OFFER_NAME, formatHours } from '@/lib/pricing.mjs';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -178,22 +178,19 @@ export default function SettingsPage() {
         </div>
         <div style={{ padding: '24px' }}>
           {(() => {
-            const isTeam = hours?.plan === 'team';
-            const name = isTeam ? 'Team' : 'Single Employee';
-            const price = isTeam ? TEAM_LABEL : SINGLE_LABEL;
-            const detail = isTeam
-              ? `Aria, Nova & Opus, run by Atlas · ${hours ? formatHours(hours.allowance) : '200h'} of team time a month`
-              : `One AI employee, run by Atlas · ${hours ? formatHours(hours.allowance) : '70h'} of team time a month`;
+            const name = OFFER_NAME;
+            const price = FOUNDING_LABEL;
+            const detail = `Your AI sales team, run by Atlas · ${hours ? formatHours(hours.allowance) : '70h'} of team time a month · pay nothing until appointments are booked`;
             return (
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '20px', background: 'var(--accent-dim)', border: '1px solid #6366f130', borderRadius: '12px' }}>
                 <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: '800', color: '#fff' }}>S</div>
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>{name} Plan</p>
+                  <p style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>{name}</p>
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{detail}</p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <p style={{ fontSize: '22px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)' }}>{price}</p>
-                  <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>per month</p>
+                  <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>/mo · founding rate</p>
                 </div>
               </div>
             );

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { resolveCanonicalCompanyId } from '@/lib/company-resolve';
 import { ACTIVE_EMPLOYEE_IDS } from '@/lib/departments.mjs';
 
 // Hire (enable) an active employee on the company's team. Owner-authenticated.
@@ -17,8 +18,10 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, reason: 'not_hireable', message: 'That role isn’t available to hire yet.' }, { status: 400 });
   }
 
-  const { data: company } = await supabase
-    .from('companies').select('id, hired_employees, is_internal').order('created_at', { ascending: false }).limit(1).maybeSingle();
+  const canonicalId = await resolveCanonicalCompanyId(supabase, user.id);
+  const { data: company } = canonicalId
+    ? await supabase.from('companies').select('id, hired_employees, is_internal').eq('id', canonicalId).maybeSingle()
+    : { data: null };
   if (!company) return new Response('Complete onboarding first', { status: 400 });
 
   // --- Stripe entitlement check goes HERE (plan caps). Until then, allow. ---

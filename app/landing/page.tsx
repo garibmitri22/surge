@@ -1,18 +1,15 @@
 "use client";
 
-import { motion, useInView } from "framer-motion";
-import { useRef, useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { UserPlus, MessageSquare, Zap, Check, ChevronDown, Menu, X } from "lucide-react";
-import { SINGLE_LABEL, TEAM_LABEL, ALLOWANCES, HOUR_PRICES } from "@/lib/pricing.mjs";
+import { ClipboardList, PenLine, CalendarCheck, Check, ChevronDown, Menu, X } from "lucide-react";
 
-// Plain-English "about N runs" derived from the hour math (no overpromising).
-const SINGLE_RUNS = Math.round(ALLOWANCES.single / HOUR_PRICES.aria_run);
-const TEAM_RUNS = Math.round(ALLOWANCES.team / HOUR_PRICES.aria_run);
-
-// Contact-sales destination (placeholder — update to the real sales inbox).
-const CONTACT_SALES_MAILTO = "mailto:hello@surge.app?subject=Surge%20Enterprise%20inquiry";
+// First motion is a conversation, not self-serve. All primary CTAs point here.
+// (Placeholder — swap for the real booking link / Calendly when it's live.)
+const BOOK_CALL = "mailto:hello@surgehq.io?subject=Book%20a%2015-minute%20Surge%20walkthrough";
+const CONTACT_MAILTO = "mailto:hello@surgehq.io?subject=Surge%20inquiry";
 
 // ============================================================================
 // DATA
@@ -24,161 +21,102 @@ interface Employee {
   initials: string;
   accent: string;
   description: string;
-  stats: { label: string; value: string }[];
-  tagline?: string;
+  badge?: string;
 }
 
+// Outcome-first. No fake "Active" status, no invented stats.
 const employees: Employee[] = [
   {
     name: "Aria",
-    role: "Sales Representative",
+    role: "Sales Rep",
     initials: "AR",
     accent: "#a78bfa",
-    description: "Researches real prospects, scores every lead, and drafts the personalized outreach that books qualified meetings — you approve before anything sends.",
-    stats: [
-      { label: "Prospecting", value: "Daily" },
-      { label: "Every lead scored", value: "0–100" },
-      { label: "Follow-up cadence", value: "Day 3/7/14" },
-    ],
-  },
-  {
-    name: "Nova",
-    role: "Marketing Director",
-    initials: "NV",
-    accent: "#34d399",
-    description: "Writes posts, scripts, and campaigns native to every channel — in your brand voice, measured against a real metric.",
-    stats: [
-      { label: "Content & scripts", value: "Daily" },
-      { label: "Every channel", value: "Native" },
-      { label: "Every piece", value: "Measured" },
-    ],
-  },
-  {
-    name: "Opus",
-    role: "Operations Assistant",
-    initials: "OP",
-    accent: "#60a5fa",
-    description: "Documents your processes, preps complete handoff briefs, and tracks every task to closure — nothing falls through the cracks.",
-    stats: [
-      { label: "Tasks dropped", value: "0" },
-      { label: "Every process", value: "Documented" },
-      { label: "Every handoff", value: "Complete" },
-    ],
+    description:
+      "Finds and rebooks leads, drafts personalized outreach in your voice, and books qualified appointments. You approve before anything sends.",
   },
   {
     name: "Atlas",
     role: "Chief of Staff",
     initials: "AT",
     accent: "#f59e0b",
-    tagline: "Included in every plan",
-    description: "Briefs you every morning, turns your ideas into assigned work, and keeps the whole team moving. The reason the others run as a team.",
-    stats: [
-      { label: "Morning brief", value: "Daily" },
-      { label: "Open loops dropped", value: "0" },
-      { label: "The whole board", value: "Tracked" },
-    ],
+    badge: "Included",
+    description: "Briefs you on what got done and what needs you next — so nothing slips.",
+  },
+  {
+    name: "Opus",
+    role: "Operations",
+    initials: "OP",
+    accent: "#60a5fa",
+    description: "Preps a one-pager for every booked meeting and tracks each task to closure.",
+  },
+  {
+    name: "Nova",
+    role: "Marketing",
+    initials: "NV",
+    accent: "#34d399",
+    badge: "BETA",
+    description:
+      "Drafts on-brand content and campaigns. In beta — an early preview of where Surge is going next.",
   },
 ];
 
 const steps = [
   {
-    icon: UserPlus,
-    title: "Hire",
-    description: "Pick one employee — or hire the whole team. Each one specializes in a different business function.",
+    icon: ClipboardList,
+    title: "We load your list",
+    description: "Your old quotes and past customers — the revenue you already own.",
   },
   {
-    icon: MessageSquare,
-    title: "Brief",
-    description: "A 5-minute interview teaches them your business, voice, and goals. That's all they need.",
+    icon: PenLine,
+    title: "Aria drafts in your voice",
+    description: "She researches and writes the outreach; you review and approve a batch.",
   },
   {
-    icon: Zap,
-    title: "They work",
-    description: "Real tasks, real results, daily reports. Watch your business move while you focus elsewhere.",
+    icon: CalendarCheck,
+    title: "Appointments get booked",
+    description: "They land on your calendar — and you only start paying once they do.",
   },
 ];
 
-const upcomingEmployees = [
-  { name: "Rex", role: "Recruiter", initials: "RX" },
-  { name: "Clara", role: "Customer Service", initials: "CL" },
-  { name: "Evan", role: "Executive Assistant", initials: "EV" },
-  { name: "Piper", role: "Project Manager", initials: "PP" },
-  { name: "Finn", role: "Finance Manager", initials: "FN" },
-];
-
-const plans = [
-  {
-    name: "Single Employee",
-    price: SINGLE_LABEL,
-    period: "/mo",
-    description: "One working AI employee — run by your Chief of Staff",
-    features: [
-      "1 AI employee — Aria, Nova, or Opus",
-      "Atlas, your Chief of Staff — included",
-      `${ALLOWANCES.single} hours of employee time a month (about ${SINGLE_RUNS} prospecting runs)`,
-      "Unlimited chat — talking to your team is always free",
-      "Overtime anytime, so you never get stuck",
-      "Daily morning brief & live dashboard",
-    ],
-    highlighted: false,
-  },
-  {
-    name: "Hire the Team",
-    price: TEAM_LABEL,
-    period: "/mo",
-    description: "Four employees — $250 each — run by a Chief of Staff",
-    features: [
-      "Aria, Nova & Opus — your full AI workforce",
-      "Atlas, your Chief of Staff — included",
-      `${ALLOWANCES.team} hours of team time a month (about ${TEAM_RUNS} prospecting runs)`,
-      "Unlimited chat — talking to your team is always free",
-      "Overtime anytime, so you never get stuck",
-      "Priority support & custom training",
-    ],
-    highlighted: true,
-    badge: "Most popular",
-  },
-  {
-    name: "Enterprise",
-    price: "Custom",
-    period: "",
-    description: "For larger teams with custom needs",
-    features: [
-      "Custom team size + Atlas",
-      "Custom hour allowances",
-      "Dedicated support",
-      "Enterprise integrations",
-      "SLA guarantee",
-    ],
-    highlighted: false,
-  },
+const offerFeatures = [
+  "Rebooks your old quotes & past customers — revenue from a list you already own, no ad spend.",
+  "Answers every new lead in under 2 minutes, 24/7 — in home services, speed wins the job.",
+  "You approve every message before it sends. Nothing goes out you wouldn't say yourself.",
+  "Weekly results report — appointments booked, jobs in motion. Real numbers only.",
+  "White-glove setup — I personally tune it to your business and your voice, then it runs hands-off.",
+  "Month-to-month. Cancel anytime. You close the jobs; we fill your calendar.",
 ];
 
 const faqs = [
   {
     question: "Is this just ChatGPT?",
     answer:
-      "No. ChatGPT is a general assistant. Our AI employees are specialized agents trained on specific business functions — sales, marketing, operations — with persistent memory of YOUR business and a Chief of Staff who briefs you and routes their work. You don't prompt them. You manage them.",
+      "No. ChatGPT is a general assistant. Surge is a specialized AI sales team with persistent memory of your business — your customers, your voice, your jobs — that takes real action: rebooks leads, drafts outreach, books appointments. You don't prompt it. You approve it.",
   },
   {
-    question: "What do they actually do?",
+    question: "What does it actually do?",
     answer:
-      "Real work. Aria researches and scores real prospects, drafts personalized outreach, and works a follow-up cadence — you approve before anything sends. Nova writes posts, scripts, ad copy, and campaigns for every channel. Opus documents your processes, preps briefs, and tracks every task to closure. Atlas briefs you each morning and runs the team. They report daily — real numbers only.",
+      "Aria rebooks your old quotes and past customers and answers every new lead in under two minutes — researching, drafting in your voice, and booking qualified appointments on your calendar. You approve before anything sends, and you close the jobs. Reports weekly — real numbers only.",
   },
   {
-    question: "Is my data safe?",
+    question: "What does it cost?",
     answer:
-      "Your data is isolated per workspace, encrypted in transit and at rest, and never used to train other companies' employees. You can delete everything at any time. Enterprise plans include custom data residency options.",
+      "$1,500/mo founding rate, locked for life. You pay nothing until qualified appointments are booked on your calendar. Month-to-month, cancel anytime.",
   },
   {
-    question: "Can I fire one?",
+    question: "Do I still close the jobs?",
     answer:
-      "Instantly. No two-week notice, no severance, no awkward conversations. Cancel anytime from your dashboard. Your AI employee stops working immediately, and you won't be charged again.",
+      "Yes. You're the expert on your work and your pricing. Surge finds and books qualified appointments; you do what you already do best.",
   },
   {
     question: "How fast do I see results?",
     answer:
-      "Most customers see their first completed tasks within 24 hours. Meaningful business impact — qualified leads, published content, streamlined operations — typically shows within the first week. We include onboarding support to get you there faster.",
+      "We start with the list you already own, so the first booked appointments can come within days — revenue from customers you already have, with no ad spend.",
+  },
+  {
+    question: "Is my data safe?",
+    answer:
+      "Your data is isolated per business, encrypted in transit and at rest, and never used to train anyone else's. You can delete everything at any time.",
   },
 ];
 
@@ -187,8 +125,8 @@ const faqs = [
 // ============================================================================
 
 const NAV_LINKS: [string, string][] = [
-  ["#team", "Team"],
-  ["#pricing", "Pricing"],
+  ["#how", "How it works"],
+  ["#offer", "Pricing"],
   ["#faq", "FAQ"],
 ];
 
@@ -220,7 +158,7 @@ function Header() {
             size="sm"
             className="bg-primary hover:bg-primary/90 text-primary-foreground transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
           >
-            <Link href="/signup">Get started</Link>
+            <a href={BOOK_CALL}>Book a walkthrough</a>
           </Button>
         </div>
 
@@ -249,13 +187,13 @@ function Header() {
               {label}
             </a>
           ))}
-          <Link
-            href="/signup"
+          <a
+            href={BOOK_CALL}
             onClick={() => setOpen(false)}
             className="block mt-2 text-center bg-primary text-primary-foreground rounded-lg py-3 text-base font-medium hover:bg-primary/90 transition-colors"
           >
-            Get started
-          </Link>
+            Book a walkthrough
+          </a>
         </nav>
       )}
     </motion.header>
@@ -270,13 +208,21 @@ function Hero() {
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center px-6 py-24">
       <div className="max-w-4xl mx-auto text-center">
-        <motion.h1
+        <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
+          className="text-sm font-medium uppercase tracking-wide text-primary mb-5"
+        >
+          Done-for-you AI growth · Home services
+        </motion.p>
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.05 }}
           className="text-4xl sm:text-5xl md:text-7xl font-semibold tracking-tight text-foreground text-balance"
         >
-          Hire your AI workforce.
+          We book jobs from the customers you already have.
         </motion.h1>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
@@ -284,8 +230,9 @@ function Hero() {
           transition={{ duration: 0.6, delay: 0.1 }}
           className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto text-pretty"
         >
-          AI employees that sell, market, and operate your business — 24/7, from
-          {` ${SINGLE_LABEL} `}a month. No salaries. No turnover. No sick days.
+          Surge puts an AI sales team on your business — it rebooks your old quotes and answers every new
+          lead in under two minutes, so you stop losing work to whoever called back first. You approve
+          every message. <span className="text-foreground font-medium">You pay nothing until qualified appointments are booked on your calendar.</span>
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -298,7 +245,7 @@ function Hero() {
             size="lg"
             className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary/25"
           >
-            <Link href="/signup">Meet your team</Link>
+            <a href={BOOK_CALL}>See it on your list — book 15 min</a>
           </Button>
         </motion.div>
         <motion.p
@@ -307,92 +254,8 @@ function Hero() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="mt-6 text-sm text-muted-foreground"
         >
-          Early access — founding customers get direct input on the roster
+          Founding-customer rate: <span className="text-foreground font-medium">$1,500/mo, locked for life.</span>
         </motion.p>
-      </div>
-    </section>
-  );
-}
-
-// ============================================================================
-// TEAM
-// ============================================================================
-
-function EmployeeCard({ employee, index }: { employee: Employee; index: number }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-md transition-shadow duration-300"
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm"
-            style={{ backgroundColor: employee.accent }}
-          >
-            {employee.initials}
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">{employee.name}</h3>
-            <p className="text-sm text-muted-foreground">{employee.role}</p>
-            {employee.tagline && (
-              <span
-                className="inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: `${employee.accent}1a`, color: employee.accent }}
-              >
-                {employee.tagline}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className="w-2 h-2 rounded-full animate-pulse"
-            style={{ backgroundColor: employee.accent }}
-          />
-          <span className="text-xs text-muted-foreground">Active</span>
-        </div>
-      </div>
-      <p className="text-sm text-muted-foreground mb-6">{employee.description}</p>
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        {employee.stats.map((stat) => (
-          <div key={stat.label}>
-            <p className="text-lg font-semibold text-foreground">{stat.value}</p>
-            <p className="text-xs text-muted-foreground">{stat.label}</p>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
-function Team() {
-  return (
-    <section id="team" className="py-24 px-6">
-      <div className="max-w-6xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-4">
-            Your team comes with a Chief of Staff.
-          </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            Three AI employees do the work. Atlas runs them — briefing you each morning
-            and routing every task. No competitor ships a team that manages itself.
-          </p>
-        </motion.div>
-        <div className="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
-          {employees.map((employee, index) => (
-            <EmployeeCard key={employee.name} employee={employee} index={index} />
-          ))}
-        </div>
       </div>
     </section>
   );
@@ -404,7 +267,7 @@ function Team() {
 
 function HowItWorks() {
   return (
-    <section className="py-24 px-6 bg-card">
+    <section id="how" className="py-24 px-6 bg-card">
       <div className="max-w-6xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -413,11 +276,9 @@ function HowItWorks() {
           transition={{ duration: 0.5 }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-4">
-            How it works
-          </h2>
+          <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-4">How it works</h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            From hire to results in under 10 minutes.
+            We start with the list you already own — and you only pay once appointments are landing.
           </p>
         </motion.div>
         <div className="grid md:grid-cols-3 gap-8">
@@ -449,266 +310,181 @@ function HowItWorks() {
 }
 
 // ============================================================================
-// PERFORMANCE SCORE
+// TEAM
 // ============================================================================
 
-function AnimatedRing({ score }: { score: number }) {
-  const circumference = 2 * Math.PI * 120;
-  const strokeDashoffset = circumference - (score / 100) * circumference;
-
+function EmployeeCard({ employee, index }: { employee: Employee; index: number }) {
   return (
-    <div className="relative w-64 h-64 md:w-80 md:h-80">
-      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 256 256">
-        <circle
-          cx="128"
-          cy="128"
-          r="120"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="8"
-          className="text-border"
-        />
-        <motion.circle
-          cx="128"
-          cy="128"
-          r="120"
-          fill="none"
-          stroke="url(#gradient)"
-          strokeWidth="8"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset }}
-          transition={{ duration: 2, ease: "easeOut" }}
-        />
-        <defs>
-          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#6366f1" />
-            <stop offset="100%" stopColor="#a78bfa" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <AnimatedNumber target={score} />
-        <p className="text-sm text-muted-foreground mt-1">out of 100</p>
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5, delay: index * 0.1 }}
+      className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-md transition-shadow duration-300"
+    >
+      <div className="flex items-center gap-4 mb-4">
+        <div
+          className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+          style={{ backgroundColor: employee.accent }}
+        >
+          {employee.initials}
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-foreground">{employee.name}</h3>
+            {employee.badge && (
+              <span
+                className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: `${employee.accent}1a`, color: employee.accent }}
+              >
+                {employee.badge}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">{employee.role}</p>
+        </div>
       </div>
-    </div>
+      <p className="text-sm text-muted-foreground">{employee.description}</p>
+    </motion.div>
   );
 }
 
-function AnimatedNumber({ target }: { target: number }) {
-  const [count, setCount] = useState(0);
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true });
-
-  useEffect(() => {
-    if (!isInView) return;
-
-    let start = 0;
-    const duration = 2000;
-    const increment = target / (duration / 16);
-
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= target) {
-        setCount(target);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(start));
-      }
-    }, 16);
-
-    return () => clearInterval(timer);
-  }, [isInView, target]);
-
+function Team() {
   return (
-    <span ref={ref} className="text-5xl md:text-6xl font-bold text-foreground">
-      {count}
-    </span>
+    <section id="team" className="py-24 px-6">
+      <div className="max-w-6xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-16"
+        >
+          <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-4">
+            The team behind your results
+          </h2>
+          <p className="text-muted-foreground max-w-xl mx-auto">
+            One sales engine, run for you. You approve the work; they fill your calendar.
+          </p>
+        </motion.div>
+        <div className="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          {employees.map((employee, index) => (
+            <EmployeeCard key={employee.name} employee={employee} index={index} />
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
-function PerformanceScore() {
+// ============================================================================
+// PROOF  (replaces the invented "87" performance score)
+// ============================================================================
+
+function Proof() {
   return (
     <section className="py-24 px-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-4">
-              Workforce Performance Score
-            </h2>
-            <p className="text-muted-foreground mb-6">
-              One number that tells you your business is moving. Like an Oura Ring — but for your company.
-            </p>
-            <ul className="space-y-3">
-              {[
-                "Real-time performance metrics",
-                "Daily progress reports",
-                "Actionable insights",
-                "Goal tracking",
-              ].map((item) => (
-                <li key={item} className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="flex justify-center"
-          >
-            <AnimatedRing score={87} />
-          </motion.div>
-        </div>
+      <div className="max-w-3xl mx-auto text-center">
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-3xl md:text-4xl font-semibold text-foreground mb-5"
+        >
+          We show you the money, not a dashboard.
+        </motion.h2>
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="text-muted-foreground text-lg leading-relaxed"
+        >
+          Every week you see exactly what your AI team did — appointments booked, jobs in motion, and the
+          revenue in play. Counts you can open into the real lead, the real message, the real booked
+          meeting. No vanity scores.
+        </motion.p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="mt-10 flex flex-wrap items-center justify-center gap-3"
+        >
+          {["Appointments booked", "Jobs in motion", "Revenue in play"].map((label) => (
+            <span
+              key={label}
+              className="text-sm font-medium text-foreground bg-card border border-border rounded-full px-4 py-2"
+            >
+              {label}
+            </span>
+          ))}
+        </motion.div>
       </div>
     </section>
   );
 }
 
 // ============================================================================
-// COMING SOON
+// THE OFFER  (replaces the 3-tier pricing menu)
 // ============================================================================
 
-function ComingSoon() {
+function Offer() {
   return (
-    <section className="py-24 px-6 bg-card">
-      <div className="max-w-6xl mx-auto">
+    <section id="offer" className="py-24 px-6 bg-card">
+      <div className="max-w-2xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-12"
+          className="text-center mb-10"
         >
-          <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-4">
-            Coming soon
-          </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            More AI employees joining the workforce.
-          </p>
+          <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-3">One engine. One price.</h2>
+          <p className="text-muted-foreground">No menu, no per-seat math. One done-for-you outcome.</p>
         </motion.div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {upcomingEmployees.map((employee, index) => (
-            <motion.div
-              key={employee.name}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: index * 0.05 }}
-              className="bg-background rounded-xl p-5 border border-border text-center opacity-60"
-            >
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-sm font-medium mx-auto mb-3">
-                {employee.initials}
-              </div>
-              <h3 className="font-medium text-foreground text-sm">{employee.name}</h3>
-              <p className="text-xs text-muted-foreground mt-1">{employee.role}</p>
-              <Button
-                asChild
-                variant="outline"
-                size="sm"
-                className="mt-4 w-full text-xs h-8 hover:bg-primary hover:text-primary-foreground transition-colors"
-              >
-                <Link href="/signup">Join waitlist</Link>
-              </Button>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
-// ============================================================================
-// PRICING
-// ============================================================================
-
-function Pricing() {
-  return (
-    <section id="pricing" className="py-24 px-6">
-      <div className="max-w-6xl mx-auto">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-6"
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="relative rounded-2xl p-8 bg-background border border-border shadow-xl shadow-primary/10"
         >
-          <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-4">
-            Simple, transparent pricing
-          </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            Compare: A human hire costs $50,000+/year. Our AI employees? 93% less.
+          <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-medium px-3 py-1 rounded-full">
+            Founding rate
+          </span>
+
+          <h3 className="text-xl font-semibold text-foreground">Done-for-you AI Growth Engine</h3>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-5xl font-bold text-foreground">$1,500</span>
+            <span className="text-muted-foreground">/mo</span>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Founding rate, locked for life{" "}
+            <span className="text-muted-foreground/80">(standard rate becomes $2,500–5,000)</span>
           </p>
+          <p className="mt-4 text-sm font-medium text-foreground bg-primary/10 rounded-lg px-4 py-3">
+            You pay nothing until qualified appointments are booked on your calendar.
+          </p>
+
+          <ul className="space-y-3 mt-6 mb-8">
+            {offerFeatures.map((feature) => (
+              <li key={feature} className="flex items-start gap-3 text-sm text-muted-foreground">
+                <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <span>{feature}</span>
+              </li>
+            ))}
+          </ul>
+
+          <Button
+            asChild
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <a href={BOOK_CALL}>Book a 15-minute walkthrough</a>
+          </Button>
         </motion.div>
-        <div className="grid md:grid-cols-3 gap-6 mt-12">
-          {plans.map((plan, index) => (
-            <motion.div
-              key={plan.name}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className={`relative rounded-2xl p-6 ${
-                plan.highlighted
-                  ? "bg-primary text-primary-foreground shadow-xl shadow-primary/20 scale-105"
-                  : "bg-card border border-border"
-              }`}
-            >
-              {plan.badge && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-foreground text-background text-xs font-medium px-3 py-1 rounded-full">
-                  {plan.badge}
-                </span>
-              )}
-              <div className="mb-6">
-                <h3 className={`text-lg font-semibold ${plan.highlighted ? "" : "text-foreground"}`}>
-                  {plan.name}
-                </h3>
-                <p className={`text-sm mt-1 ${plan.highlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                  {plan.description}
-                </p>
-              </div>
-              <div className="mb-6">
-                <span className={`text-4xl font-bold ${plan.highlighted ? "" : "text-foreground"}`}>
-                  {plan.price}
-                </span>
-                <span className={plan.highlighted ? "text-primary-foreground/80" : "text-muted-foreground"}>
-                  {plan.period}
-                </span>
-              </div>
-              <ul className="space-y-3 mb-8">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-3 text-sm">
-                    <Check className={`w-4 h-4 ${plan.highlighted ? "" : "text-primary"}`} />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              <Button
-                asChild
-                className={`w-full ${
-                  plan.highlighted
-                    ? "bg-white text-primary hover:bg-white/90"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90"
-                } transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]`}
-              >
-                {plan.price === "Custom" ? (
-                  <a href={CONTACT_SALES_MAILTO}>Contact sales</a>
-                ) : (
-                  <Link href="/signup">Get started</Link>
-                )}
-              </Button>
-            </motion.div>
-          ))}
-        </div>
       </div>
     </section>
   );
@@ -756,7 +532,7 @@ function FAQItem({ faq, index }: { faq: (typeof faqs)[0]; index: number }) {
 
 function FAQ() {
   return (
-    <section id="faq" className="py-24 px-6 bg-card">
+    <section id="faq" className="py-24 px-6">
       <div className="max-w-3xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -765,9 +541,7 @@ function FAQ() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-4">
-            Questions? Answered.
-          </h2>
+          <h2 className="text-3xl md:text-4xl font-semibold text-foreground mb-4">Questions? Answered.</h2>
         </motion.div>
         <div>
           {faqs.map((faq, index) => (
@@ -794,7 +568,7 @@ function FinalCTA() {
           transition={{ duration: 0.5 }}
           className="text-3xl md:text-5xl font-semibold text-white mb-6 text-balance"
         >
-          Your first employee starts today.
+          Your list is full of jobs you haven&rsquo;t booked yet.
         </motion.h2>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
@@ -803,7 +577,7 @@ function FinalCTA() {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="text-white/70 mb-10 max-w-xl mx-auto"
         >
-          Start building your AI workforce now.
+          Let me show you on your actual customers — you pay nothing until appointments are landing.
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -816,7 +590,7 @@ function FinalCTA() {
             size="lg"
             className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary/25"
           >
-            <Link href="/signup">Meet your team</Link>
+            <a href={BOOK_CALL}>Book a 15-minute walkthrough</a>
           </Button>
         </motion.div>
       </div>
@@ -844,7 +618,7 @@ function Footer() {
             <a href="/legal/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Terms
             </a>
-            <a href={CONTACT_SALES_MAILTO} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <a href={CONTACT_MAILTO} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Contact
             </a>
           </nav>
@@ -864,11 +638,10 @@ export default function Page() {
       <Header />
       <div className="pt-16">
         <Hero />
-        <Team />
         <HowItWorks />
-        <PerformanceScore />
-        <ComingSoon />
-        <Pricing />
+        <Team />
+        <Proof />
+        <Offer />
         <FAQ />
         <FinalCTA />
         <Footer />

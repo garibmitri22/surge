@@ -6,7 +6,7 @@
 // every call, (4) pricing comes from lib/pricing.mjs.
 import { readFileSync } from 'node:fs';
 import { estCostUsd, currentPeriod, MODEL_RATES } from '../lib/usage-config.mjs';
-import { PRICE_SINGLE, PRICE_TEAM } from '../lib/pricing.mjs';
+import { PRICE_FOUNDING, FOUNDING_LABEL, OFFER_NAME } from '../lib/pricing.mjs';
 
 const env = Object.fromEntries(
   readFileSync('.env.local', 'utf8').split('\n').filter((l) => l.includes('='))
@@ -46,10 +46,10 @@ check('route records every call to usage_log with est_cost_usd', /from\('usage_l
 check('research routed to Haiku, writing kept on Sonnet', /RESEARCH_MODEL/.test(route) && /WRITING_MODEL/.test(route), 'both models referenced');
 check('prompt caching kept on the run system block', /cache_control:\s*\{\s*type:\s*'ephemeral'\s*\}/.test(route), 'cache_control present');
 
-console.log('\n--- 3. Pricing: centralized in lib/pricing.mjs ($999 team / $399 single) ---');
-check('pricing module is source of truth: team 999 / single 399', PRICE_TEAM === 999 && PRICE_SINGLE === 399, `team ${PRICE_TEAM}, single ${PRICE_SINGLE}`);
-check('landing renders both plans and imports centralized pricing', /Hire the Team/.test(landing) && /Single Employee/.test(landing) && /pricing\.mjs/.test(landing));
-check('team plan flagged Most popular (default)', /Most popular/.test(landing));
+console.log('\n--- 3. Pricing: ONE offer, founding rate $1,500 (no $399/$999) ---');
+check('pricing source of truth: founding rate $1,500', PRICE_FOUNDING === 1500 && FOUNDING_LABEL === '$1,500', `${FOUNDING_LABEL}`);
+check('landing shows the one founding offer, no old plans', new RegExp(OFFER_NAME).test(landing) && /\$1,500/.test(landing) && !/\$399/.test(landing) && !/\$999/.test(landing) && !/Hire the Team/.test(landing) && !/Single Employee/.test(landing));
+check('landing leads with founding rate + pay-after-booked gate', /Founding rate/.test(landing) && /pay nothing until/i.test(landing));
 
 console.log(`\nperiod=${currentPeriod()}`);
 console.log(failures === 0

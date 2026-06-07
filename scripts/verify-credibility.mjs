@@ -48,6 +48,20 @@ check('name-like handle (separator, no digits) → titled name', displayNameFrom
 check('real profile name always wins', displayNameFrom({ full_name: 'Mitri G' }, 'garibmitri1@gmail.com').firstName === 'Mitri');
 check('no name + no email → "there"', displayNameFrom(null, null).name === 'there');
 
+// --- 3b. Pricing positioning: ONE offer, no dead $399/$999 ------------------
+console.log('\n--- 3b. Pricing positioning (the old $399/$999 menu is dead) ---');
+{
+  const landing = readFileSync('app/landing/page.tsx', 'utf8');
+  const pricing = readFileSync('lib/pricing.mjs', 'utf8');
+  const run = readFileSync('app/api/agent/run/route.ts', 'utf8');
+  const personas = ['aria', 'nova', 'opus'].map((p) => readFileSync(`personas/${p}.md`, 'utf8')).join('\n');
+  const all = [landing, pricing, run, personas].join('\n');
+  check('no $399/$999 anywhere in landing/pricing/writer/personas', !/\$399|\$999/.test(all));
+  check('no PRICE_SINGLE=399 / PRICE_TEAM=999 in the source of truth', !/PRICE_SINGLE\s*=\s*399/.test(pricing) && !/PRICE_TEAM\s*=\s*999/.test(pricing));
+  check('founding positioning is live: $1,500 + pay-after-booked gate', /PRICE_FOUNDING\s*=\s*1500/.test(pricing) && /\$1,500/.test(landing) && /pay nothing until/i.test(landing));
+  check('landing shows the one done-for-you offer (no old plan menu)', /Done-for-you AI Growth Engine/.test(landing) && !/Hire the Team|Single Employee/.test(landing));
+}
+
 // --- 4. (DB) monthly grant resets, never stacks -----------------------------
 console.log('\n--- 4. No-rollover reset (needs hours_reset_migration) ---');
 const probe = createClient(URL, ANON);

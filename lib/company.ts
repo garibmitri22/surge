@@ -1,6 +1,9 @@
 // Company profile, persisted in the Supabase `companies` table.
-// Single-tenant for now (no auth) — there is at most one company row.
+// Multi-tenant: every account is scoped to its signed-in user. We enforce ONE company per
+// user and resolve it deterministically (see lib/company-resolve.ts) so the dashboard,
+// /leads, and Atlas always read the same canonical row — never "whichever was created last".
 import { supabase } from './supabase';
+import { resolveCanonicalCompanyId } from './company-resolve';
 
 export interface CompanyProfile {
   companyName: string;
@@ -41,11 +44,12 @@ function mapCompany(r: CompanyRow): CompanyProfile {
 }
 
 export async function getCompanyProfile(): Promise<CompanyProfile | null> {
+  const companyId = await getMyCompanyId();
+  if (!companyId) return null;
   const { data, error } = await supabase
     .from('companies')
     .select('*')
-    .order('created_at', { ascending: false })
-    .limit(1)
+    .eq('id', companyId)
     .maybeSingle();
   if (error) throw error;
   return data ? mapCompany(data as CompanyRow) : null;
@@ -74,18 +78,13 @@ export async function saveCompanyProfile(profile: CompanyProfile): Promise<void>
   if (error) throw error;
 }
 
-/** The current user's company id — includes a not-yet-complete DRAFT row (intake
- *  writes to it as it goes). null only when no row exists at all. Ordered by
- *  created_at because a draft has no completed_at. RLS scopes this to the user. */
+/** The current user's ONE canonical company id (the completed row that owns the leads,
+ *  or the draft during intake). Deterministic + user_id-scoped — see company-resolve.ts.
+ *  null only when the user has no company row at all. */
 export async function getMyCompanyId(): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('companies')
-    .select('id')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  return data?.id ?? null;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  return resolveCanonicalCompanyId(supabase, user.id);
 }
 
 /** Onboarding is done only when a row has the flag set — a draft row does NOT count. */

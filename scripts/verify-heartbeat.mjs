@@ -75,28 +75,39 @@ const { data: tasks2 } = await db.from('tasks').select('id').eq('company_id', co
 check('second run is idempotent (no duplicate task)', r2.taskCreated === false && (tasks2 ?? []).length === 1, `taskCreated=${r2.taskCreated}, tasks=${(tasks2 ?? []).length}`);
 
 console.log('\n--- 3. Standing daily cycle (idle Aria + a directive) ---');
-const { data: co2 } = await db.from('companies').insert({ user_id: su.user.id, onboarding_complete: true, company_name: 'QA Daily Co' }).select('id').single();
+// One company per user now → use a FRESH user so its company is the canonical one the
+// heartbeat resolves (the old test put a 2nd company under the same user and expected the
+// route to pick "most recent" — which the deterministic canonical resolver no longer does).
+const email2 = `qa-hb2-${Date.now()}@surge-qa.test`, password2 = `Test-${Math.random().toString(36).slice(2)}A1!`;
+const store2 = new Map();
+const ssr2 = createServerClient(URL, ANON, { cookies: { getAll: () => [...store2.entries()].map(([name, value]) => ({ name, value })), setAll: (cs) => cs.forEach(({ name, value }) => store2.set(name, value)) } });
+const db2 = createClient(URL, ANON);
+const cookie2 = () => [...store2.entries()].map(([n, v]) => `${n}=${encodeURIComponent(v)}`).join('; ');
+const { data: su2 } = await ssr2.auth.signUp({ email: email2, password: password2 });
+await db2.auth.signInWithPassword({ email: email2, password: password2 });
+const { data: co2 } = await db2.from('companies').insert({ user_id: su2.user.id, onboarding_complete: true, company_name: 'QA Daily Co' }).select('id').single();
 const c2 = co2.id;
-await db.from('memory_entries').insert({ id: 'm' + Date.now(), company_id: c2, type: 'icp', title: 'ICP', content: 'med spas in Conroe', tags: ['icp'], updated_at: new Date().toISOString().slice(0, 10), sort_order: Date.now() });
+await db2.from('memory_entries').insert({ id: 'm' + Date.now(), company_id: c2, type: 'icp', title: 'ICP', content: 'med spas in Conroe', tags: ['icp'], updated_at: new Date().toISOString().slice(0, 10), sort_order: Date.now() });
 // One future (non-overdue) lead so there is no recovery task — Aria is idle.
-await db.from('leads').insert({
+await db2.from('leads').insert({
   company_id: c2, business_name: 'Future Co', vertical: 'med_spa', source_url: 'https://example.com',
-  score: 70, score_reasons: {}, status: 'qualified', next_action: 'follow up', next_action_at: future,
+  score: 70, score_reasons: {}, status: 'qualified', next_action: 'follow up', next_action_at: future, click_count: 0,
 });
-async function sweep2() { const res = await fetch(`${BASE}/api/heartbeat`, { method: 'POST', headers: { Cookie: cookie() } }); return res.json().catch(() => ({})); }
+async function sweep2() { const res = await fetch(`${BASE}/api/heartbeat`, { method: 'POST', headers: { Cookie: cookie2() } }); return res.json().catch(() => ({})); }
 const d1 = await sweep2();
-const { data: dtasks } = await db.from('tasks').select('id').eq('company_id', c2).eq('project', 'Daily Prospecting');
+const { data: dtasks } = await db2.from('tasks').select('id').eq('company_id', c2).eq('project', 'Daily Prospecting');
 check('idle Aria with an ICP gets a daily prospecting task', d1.dailyCycleQueued === true && (dtasks ?? []).length === 1, `queued=${d1.dailyCycleQueued}, tasks=${(dtasks ?? []).length}`);
 const d2 = await sweep2();
-const { data: dtasks2 } = await db.from('tasks').select('id').eq('company_id', c2).eq('project', 'Daily Prospecting');
+const { data: dtasks2 } = await db2.from('tasks').select('id').eq('company_id', c2).eq('project', 'Daily Prospecting');
 check('daily cycle is idempotent (Aria now busy → no second task)', d2.dailyCycleQueued === false && (dtasks2 ?? []).length === 1, `queued=${d2.dailyCycleQueued}, tasks=${(dtasks2 ?? []).length}`);
 
-for (const id of [companyId, c2]) {
-  await db.from('tasks').delete().eq('company_id', id);
-  await db.from('leads').delete().eq('company_id', id);
-  await db.from('activity_log').delete().eq('company_id', id);
-  await db.from('memory_entries').delete().eq('company_id', id);
-  await db.from('companies').delete().eq('id', id);
+// Each company is owned by its own user/session now — clean each with its own client.
+for (const [client, id] of [[db, companyId], [db2, c2]]) {
+  await client.from('tasks').delete().eq('company_id', id);
+  await client.from('leads').delete().eq('company_id', id);
+  await client.from('activity_log').delete().eq('company_id', id);
+  await client.from('memory_entries').delete().eq('company_id', id);
+  await client.from('companies').delete().eq('id', id);
 }
 
 console.log(failures === 0 ? '\nHEARTBEAT PASSED — overdue surfaced, stale recycled, idempotent.' : `\n${failures} CHECK(S) FAILED.`);

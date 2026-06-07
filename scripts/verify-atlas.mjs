@@ -49,7 +49,7 @@ const allTasks = [
   { assignee_id: 'nova', title: 'September content calendar', status: 'queued', project: 'Content', due_date: '2026-06-08' },
   { assignee_id: 'opus', title: 'Weekly performance report', status: 'queued', project: 'Ops', due_date: '2026-06-07' },
 ];
-const leadPipeline = { total: 12, qualified: 7, drafted: 5, pendingDrafts: 5, overdue: 1 };
+const leadPipeline = { total: 12, qualified: 7, drafted: 5, contacted: 0, warm: 2, replied: 0, meeting: 1, pendingDrafts: 5, outreachSent: 3, clicks: 1, overdue: 1 };
 const kpiSnapshot = [{ employee: 'aria', open: 1, done: 2 }, { employee: 'nova', open: 1, done: 1 }, { employee: 'opus', open: 1, done: 3 }];
 
 const atlasPrompt = buildSystemPrompt({
@@ -62,7 +62,7 @@ const ariaPrompt = buildSystemPrompt({
 });
 
 check("Atlas sees teammates' tasks (cross-team)", /WHOLE-BOARD VIEW/.test(atlasPrompt) && /\[nova\] "September content calendar"/.test(atlasPrompt) && /\[opus\]/.test(atlasPrompt));
-check('Atlas sees the lead pipeline summary', /12 leads — 7 qualified, 5 drafted, 5 draft\(s\) pending/.test(atlasPrompt));
+check('Atlas sees the lead pipeline summary (real counts incl. SENT)', /12 leads — 7 qualified, 5 drafted, 0 contacted, 2 warm/.test(atlasPrompt) && /5 draft\(s\) pending approval/.test(atlasPrompt) && /3 outreach email\(s\) actually SENT/.test(atlasPrompt));
 check('Atlas sees the workforce snapshot', /WORKFORCE SNAPSHOT/.test(atlasPrompt) && /aria: 1 open, 2 done/.test(atlasPrompt));
 check('Atlas gets Chief-of-Staff mode rule (morning brief + routing)', /CHIEF OF STAFF MODE/.test(atlasPrompt) && /Morning Brief/.test(atlasPrompt));
 check('non-chief employees are UNCHANGED (no whole-board, no chief rule)', !/WHOLE-BOARD VIEW/.test(ariaPrompt) && !/CHIEF OF STAFF MODE/.test(ariaPrompt));
