@@ -152,7 +152,7 @@ async function logActivity(companyId: string, action: string, detail: string | n
   // Owner actions show in the activity feed; attributed to Atlas (the owner's chief of staff).
   await supabase.from('activity_log').insert({
     id: 'a' + Date.now() + Math.floor(Math.random() * 1000),
-    company_id: companyId, employee_id: 'atlas', action, detail, timestamp: 'just now', sort_order: Date.now(),
+    company_id: companyId, employee_id: 'atlas', action, detail, timestamp: new Date().toISOString(), sort_order: Date.now(),
   }).then(() => {}, () => {});
 }
 

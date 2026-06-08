@@ -82,12 +82,22 @@ function mapTask(r: TaskRow): Task {
   };
 }
 
+// The real time an activity happened. Older writers stored the literal string "just now"
+// in the timestamp column, but sort_order has always carried the real creation epoch
+// (Date.now()). So: use the stored timestamp when it's a genuine date; otherwise derive
+// it from sort_order. Returns an ISO string the UI's humanTime() formats ("3m ago", etc).
+function realActivityTime(timestamp: string, sortOrder: number): string {
+  if (timestamp && !Number.isNaN(Date.parse(timestamp))) return timestamp;
+  if (typeof sortOrder === 'number' && sortOrder > 1e12) return new Date(sortOrder).toISOString(); // epoch ms
+  return timestamp; // nothing real to show — leave whatever was stored
+}
+
 function mapActivity(r: ActivityRow): ActivityItem {
   return {
     id: r.id,
     employeeId: r.employee_id,
     action: r.action,
-    timestamp: r.timestamp,
+    timestamp: realActivityTime(r.timestamp, r.sort_order),
     detail: r.detail ?? undefined,
   };
 }
