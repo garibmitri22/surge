@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import { getCompanyProfile, resetOnboarding, getHoursSummary, getMyCompanyId, getAvgDealValue, setAvgDealValue, type CompanyProfile, type HoursSummary } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import { FOUNDING_LABEL, OFFER_NAME, formatHours } from '@/lib/pricing.mjs';
+import { useVoiceMuted, setVoiceMuted } from '@/lib/voice-prefs';
 
 export default function SettingsPage() {
   const router = useRouter();
+  const voiceMuted = useVoiceMuted();
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [hours, setHours] = useState<HoursSummary | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -130,6 +132,29 @@ export default function SettingsPage() {
           <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Mitri" style={{ flex: 1, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '11px 14px', fontSize: '13px', color: 'var(--text-primary)', outline: 'none' }} />
           <button onClick={saveName} disabled={nameState === 'saving'} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 18px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}>
             {nameState === 'saving' ? 'Saving…' : nameState === 'saved' ? 'Saved ✓' : 'Save'}
+          </button>
+        </div>
+      </div>
+
+      {/* Voice — the per-agent ElevenLabs TTS toggle (accessibility: mute the whole team's voice) */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)', overflow: 'hidden', marginBottom: '20px' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-primary)' }}>Voice</h2>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Your team can read their replies aloud — each employee has a distinct voice. Tap the speaker on any message to listen; nothing ever plays on its own.</p>
+        </div>
+        <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+          <div>
+            <p style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600 }}>Mute all voices</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{voiceMuted ? 'Voice is off — the speaker buttons are hidden.' : 'Voice is on — speaker buttons appear on replies.'}</p>
+          </div>
+          <button
+            onClick={() => setVoiceMuted(!voiceMuted)}
+            role="switch"
+            aria-checked={voiceMuted}
+            aria-label="Mute all agent voices"
+            style={{ flexShrink: 0, width: '46px', height: '26px', borderRadius: '999px', border: '1px solid var(--border)', background: voiceMuted ? 'var(--surface)' : 'var(--accent)', position: 'relative', cursor: 'pointer', transition: 'background 0.15s ease' }}
+          >
+            <span style={{ position: 'absolute', top: '2px', left: voiceMuted ? '2px' : '22px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.15s ease', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
           </button>
         </div>
       </div>
