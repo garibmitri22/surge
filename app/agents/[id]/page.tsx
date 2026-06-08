@@ -3,8 +3,7 @@
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { CinematicBackground } from '@/components/CinematicBackground';
-import { PresenceOrb } from '@/components/PresenceOrb';
-import { useSpeechOrb } from '@/lib/use-speech-orb';
+import { AgentStage } from '@/components/AgentStage';
 import { AGENTS, AGENT_ORDER } from '@/lib/agents';
 
 // Per-agent character page — modeled on 11x's Alice/Julian, our way: the agent's living orb on a
@@ -16,13 +15,11 @@ export default function AgentPage() {
   const params = useParams<{ id: string }>();
   const id = String(params?.id || 'atlas').toLowerCase();
   const agent = AGENTS[id] ?? AGENTS.atlas;
-  const { speaking, analyser, play, stop } = useSpeechOrb(agent.id);
-
   const accent = agent.color;
 
   return (
     <main style={{ position: 'relative', minHeight: '100vh', background: '#05060a', color: '#e8eaf0', overflow: 'hidden' }}>
-      <CinematicBackground color={accent} intensity={speaking ? 1.25 : 0.9} />
+      <CinematicBackground color={accent} intensity={0.95} />
 
       {/* Top bar */}
       <nav style={{ position: 'relative', zIndex: 2, maxWidth: '1100px', margin: '0 auto', padding: '22px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -31,27 +28,8 @@ export default function AgentPage() {
       </nav>
 
       <section style={{ position: 'relative', zIndex: 2, maxWidth: '1100px', margin: '0 auto', padding: '24px 28px 80px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '48px', alignItems: 'center', minHeight: '74vh' }}>
-        {/* Orb on its stage */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '22px' }}>
-          <div style={{ position: 'relative', width: 360, height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ position: 'absolute', width: 360, height: 360, borderRadius: '50%', background: `radial-gradient(circle, ${accent}66 0%, ${accent}22 38%, transparent 68%)`, filter: 'blur(30px)' }} />
-            <PresenceOrb employeeId={agent.id} state={speaking ? 'talking' : 'idle'} size={300} analyser={analyser} onDark aria-label={`${agent.name} presence`} />
-          </div>
-          <button
-            type="button"
-            onClick={() => (speaking ? stop() : play(agent.spokenIntro))}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', background: accent, color: '#0a0b10', border: 'none', borderRadius: '999px', padding: '12px 22px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', boxShadow: `0 8px 30px ${accent}55` }}
-          >
-            {speaking ? (
-              <><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2" /></svg> Stop</>
-            ) : (
-              <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="6 4 20 12 6 20 6 4" fill="currentColor" /></svg> {agent.cta}</>
-            )}
-          </button>
-          {agent.id === 'atlas' && (
-            <Link href="/dashboard" style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', textDecoration: 'none' }}>or start a live conversation in your dashboard →</Link>
-          )}
-        </div>
+        {/* Orb on its stage — live conversation (Atlas) / voice taste (others), orb reacts to the audio */}
+        <AgentStage agent={agent} />
 
         {/* Character copy */}
         <div>
