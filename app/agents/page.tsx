@@ -33,9 +33,9 @@ export default function AgentsIndex() {
               href={`/agents/${id}`}
               style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '28px 20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.025)', transition: 'border-color 0.2s, background 0.2s' }}
             >
-              <div style={{ position: 'relative', width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ position: 'absolute', width: 120, height: 120, borderRadius: '50%', background: `radial-gradient(circle, ${a.color}33 0%, transparent 62%)`, filter: 'blur(12px)' }} />
-                <PresenceOrb employeeId={id} state="idle" size={104} aria-label={`${a.name} presence`} />
+              <div style={{ position: 'relative', width: 140, height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ position: 'absolute', width: 140, height: 140, borderRadius: '50%', background: `radial-gradient(circle, ${a.color}5e 0%, ${a.color}1f 40%, transparent 68%)`, filter: 'blur(18px)' }} />
+                <PresenceOrb employeeId={id} state="idle" size={116} onDark aria-label={`${a.name} presence`} />
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>

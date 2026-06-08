@@ -46,6 +46,7 @@ const FRAGMENT = /* glsl */ `
   uniform vec3  uColor;   // fixed signature colour
   uniform vec3  uTint;    // state hue tint
   uniform float uTintMix; // 0..1 mix toward uTint
+  uniform float uOnDark;  // 0 = light surface (app), 1 = dark stage (brand/agent pages)
 
   // --- Ashima simplex noise (2D) ---------------------------------------------
   vec3 mod289(vec3 x){ return x - floor(x * (1.0/289.0)) * 289.0; }
@@ -105,26 +106,39 @@ const FRAGMENT = /* glsl */ `
 
     vec3 base = mix(uColor, uTint, uTintMix);
     float baseLum = dot(base, vec3(0.299, 0.587, 0.114));
-    // Deepen the fill for LIGHT hues (e.g. Atlas amber) so the orb holds its
-    // shape against the app's light surfaces instead of washing into white. The
-    // hue stays recognisable — amber just renders as a richer, deeper amber.
-    vec3 deep = base * mix(0.92, 0.48, smoothstep(0.40, 0.78, baseLum));
 
-    float center = smoothstep(0.55, 0.0, r);
-    // Capped brightness so a light hue can't climb back toward white.
-    vec3 col = deep * (0.62 + 0.50 * lum);
-    col += base * center * 0.35 * lum * (1.0 - 0.5 * baseLum); // inner glow
-    col += vec3(1.0) * center * 0.10 * uGlow * (1.0 - baseLum); // spark for dark hues only
-    col *= 1.0 + uPulse * 0.18 * sin(t * 3.0);                  // attention pulse
+    // Surface-aware fill. On a LIGHT surface (app) we deepen light hues so the orb holds its shape
+    // against white. On a DARK stage we keep the hue luminous so the orb glows as a real, present
+    // light — the SAME orb, lit for its room (DESIGN-SYSTEM §2/§5).
+    float floorLo = mix(0.46, 0.82, uOnDark);
+    vec3 deep = base * mix(0.95, floorLo, smoothstep(0.40, 0.80, baseLum));
 
-    // Strong rim so the edge reads as a defined orb on light backgrounds.
-    col = mix(col, deep * 0.45, smoothstep(edge - 0.26, edge, r) * core);
+    float center = smoothstep(0.62, 0.0, r);          // soft inner falloff → depth
+    float lift = 1.0 + 0.55 * uOnDark;                 // overall luminance lift on dark
 
-    // Core dominates; a defined deep contact-ring grounds the orb on white,
-    // weighted up for light hues that would otherwise lack an edge.
+    // Liquid body with internal depth.
+    vec3 col = deep * (0.60 + 0.55 * lum) * lift;
+    // The orb's own coloured inner glow.
+    col += base * center * (0.34 + 0.55 * uOnDark) * lum;
+    // Hot luminous core — "lit from within", so on dark it reads as a present light, not a blob.
+    col += mix(base, vec3(1.0), 0.32) * smoothstep(0.34, 0.0, r) * (0.10 + 0.55 * uOnDark) * (0.6 + 0.4 * lum);
+    // Spark highlight for dark hues on a light bg (unchanged there; faded on dark).
+    col += vec3(1.0) * center * 0.10 * uGlow * (1.0 - baseLum) * (1.0 - 0.7 * uOnDark);
+    col *= 1.0 + uPulse * 0.18 * sin(t * 3.0);          // attention pulse
+
+    // Deep contact toning near the rim → grounds the orb (premium edge, never a flat disc).
+    col = mix(col, deep * mix(0.45, 0.66, uOnDark), smoothstep(edge - 0.26, edge, r) * core);
+
+    // Soft outer halo = the grounded glow. Wider + stronger on dark so the orb seats in the scene.
+    float haloR = mix(0.55, 1.10, uOnDark);
+    float halo = smoothstep(edge + haloR, edge - 0.05, r);
+    halo = pow(halo, 2.0) * uGlow * (0.9 + 1.0 * uOnDark);
+
     float ring = (smoothstep(edge + 0.14, edge, r) - core) * (0.30 + 0.25 * baseLum);
-    float alpha = clamp(core + glow * 0.35 + ring, 0.0, 1.0);
-    col = mix(deep * 0.5, col, core / max(alpha, 0.001)); // halo/ring take the deep tone
+    float alpha = clamp(core + halo * (0.30 + 0.5 * uOnDark) + ring, 0.0, 1.0);
+    // Halo/ring take the deep tone on light; a glowing coloured tone on dark.
+    vec3 haloTone = mix(deep * 0.5, base * (0.5 + 0.45 * lum), uOnDark);
+    col = mix(haloTone, col, core / max(alpha, 0.001));
     gl_FragColor = vec4(col, alpha);
   }
 `;
@@ -138,6 +152,9 @@ export interface PresenceOrbProps {
   analyser?: AnalyserNode | null;
   /** 0..1 amplitude stand-in (text-stream cadence) until voices land. */
   level?: number;
+  /** Light the orb for a DARK surface (brand/agent pages) — luminous + soft grounded glow.
+   *  Default false = the calmer light-surface treatment used across the app. Same orb, lit for its room. */
+  onDark?: boolean;
   className?: string;
   style?: React.CSSProperties;
   'aria-label'?: string;
@@ -149,6 +166,7 @@ export function PresenceOrb({
   size = 96,
   analyser = null,
   level,
+  onDark = false,
   className,
   style,
   'aria-label': ariaLabel,
@@ -156,9 +174,9 @@ export function PresenceOrb({
   const mountRef = useRef<HTMLDivElement>(null);
 
   // Latest props, read inside the animation loop without re-creating it.
-  const propsRef = useRef({ employeeId, state, analyser, level });
+  const propsRef = useRef({ employeeId, state, analyser, level, onDark });
   useEffect(() => {
-    propsRef.current = { employeeId, state, analyser, level };
+    propsRef.current = { employeeId, state, analyser, level, onDark };
   });
 
   useEffect(() => {
@@ -189,6 +207,7 @@ export function PresenceOrb({
       uColor:   { value: new THREE.Vector3(r, g, b) },
       uTint:    { value: new THREE.Vector3(r, g, b) },
       uTintMix: { value: 0 },
+      uOnDark:  { value: propsRef.current.onDark ? 1 : 0 },
     };
 
     const material = new THREE.ShaderMaterial({
@@ -265,6 +284,7 @@ export function PresenceOrb({
       const targetLevel = readAmplitude(elapsed);
       smoothedLevel += (targetLevel - smoothedLevel) * 0.18;
       uniforms.uLevel.value = smoothedLevel;
+      uniforms.uOnDark.value += ((propsRef.current.onDark ? 1 : 0) - uniforms.uOnDark.value) * 0.1;
 
       renderer.render(scene, camera);
     }

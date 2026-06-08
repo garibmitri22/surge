@@ -33,9 +33,9 @@ export default function AgentPage() {
       <section style={{ position: 'relative', zIndex: 2, maxWidth: '1100px', margin: '0 auto', padding: '24px 28px 80px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '48px', alignItems: 'center', minHeight: '74vh' }}>
         {/* Orb on its stage */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '22px' }}>
-          <div style={{ position: 'relative', width: 300, height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ position: 'absolute', width: 300, height: 300, borderRadius: '50%', background: `radial-gradient(circle, ${accent}38 0%, transparent 62%)`, filter: 'blur(18px)' }} />
-            <PresenceOrb employeeId={agent.id} state={speaking ? 'talking' : 'idle'} size={260} analyser={analyser} aria-label={`${agent.name} presence`} />
+          <div style={{ position: 'relative', width: 360, height: 360, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'absolute', width: 360, height: 360, borderRadius: '50%', background: `radial-gradient(circle, ${accent}66 0%, ${accent}22 38%, transparent 68%)`, filter: 'blur(30px)' }} />
+            <PresenceOrb employeeId={agent.id} state={speaking ? 'talking' : 'idle'} size={300} analyser={analyser} onDark aria-label={`${agent.name} presence`} />
           </div>
           <button
             type="button"
@@ -76,7 +76,7 @@ export default function AgentPage() {
           </div>
 
           <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginTop: '28px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '18px' }}>
-            <span style={{ color: '#fff', fontWeight: 600 }}>Real numbers. Never faked.</span> You approve every message before it sends. White-glove setup, then it runs hands-off.
+            <span style={{ color: '#fff', fontWeight: 600 }}>Every number you see is real</span> — real leads, real booked jobs. No inflated dashboards, ever. You approve every message before it sends.
           </p>
         </div>
       </section>

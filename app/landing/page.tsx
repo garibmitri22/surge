@@ -209,23 +209,24 @@ function Header() {
 function Hero() {
   return (
     <section
-      className="relative flex items-center justify-center overflow-hidden px-6"
-      style={{ minHeight: "94vh", background: "#05060a" }}
+      className="relative flex items-start justify-center overflow-hidden px-6"
+      style={{ minHeight: "90vh", background: "#05060a" }}
     >
       {/* Living, code-rendered atmospheric stage — no video, all shader. */}
-      <CinematicBackground color="#f59e0b" intensity={0.95} />
+      <CinematicBackground color="#f59e0b" intensity={1.0} />
 
-      <div className="relative z-10 max-w-4xl mx-auto text-center" style={{ paddingTop: 32, paddingBottom: 64 }}>
+      {/* Top-aligned so the orb always reads first, even on shorter screens. */}
+      <div className="relative z-10 max-w-4xl mx-auto text-center" style={{ paddingTop: "clamp(40px, 7vh, 96px)", paddingBottom: 64 }}>
         {/* Atlas — the living presence, on its stage. */}
         <motion.div
           initial={{ opacity: 0, scale: 0.88 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.9, ease: "easeOut" }}
-          className="flex justify-center mb-9"
+          className="flex justify-center mb-8"
         >
-          <div style={{ position: "relative", width: 168, height: 168 }}>
-            <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "radial-gradient(circle, #f59e0b40 0%, transparent 62%)", filter: "blur(18px)" }} />
-            <PresenceOrb employeeId="atlas" state="idle" size={168} aria-label="Surge — your AI team" />
+          <div style={{ position: "relative", width: 188, height: 188, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ position: "absolute", width: 188, height: 188, borderRadius: "50%", background: "radial-gradient(circle, #f59e0b66 0%, #f59e0b22 40%, transparent 68%)", filter: "blur(26px)" }} />
+            <PresenceOrb employeeId="atlas" state="idle" size={188} onDark aria-label="Surge — your AI team" />
           </div>
         </motion.div>
 
