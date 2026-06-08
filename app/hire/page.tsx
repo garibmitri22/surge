@@ -64,7 +64,7 @@ export default function HirePage() {
       <div style={{ marginBottom: '6px' }}>
         <h1 style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)' }}>Build your team</h1>
         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px', maxWidth: '640px', lineHeight: 1.5 }}>
-          One done-for-you AI sales team — {FOUNDING_LABEL}/mo founding rate, and you pay nothing until qualified appointments are booked. Atlas, your Chief of Staff, is included.
+          One done-for-you AI workforce — {FOUNDING_LABEL}/mo founding rate, and you pay nothing until qualified appointments are booked. Atlas, your Chief of Staff, is included.
         </p>
       </div>
 

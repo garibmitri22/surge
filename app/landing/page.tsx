@@ -26,15 +26,16 @@ interface Employee {
   badge?: string;
 }
 
-// Outcome-first. No fake "Active" status, no invented stats.
+// Outcome-first. No fake "Active" status, no invented stats. Not-yet-live roles are honestly
+// badged "Coming" — never implied as live (NORTH-STAR).
 const employees: Employee[] = [
   {
     name: "Aria",
-    role: "Sales Rep",
+    role: "Lead Gen & Sales",
     initials: "AR",
     accent: "#a78bfa",
     description:
-      "Finds and rebooks leads, drafts personalized outreach in your voice, and books qualified appointments. You approve before anything sends.",
+      "Researches and rebooks leads, answers new ones in minutes, drafts personalized outreach in your voice, and books qualified appointments. You approve before anything sends.",
   },
   {
     name: "Atlas",
@@ -42,7 +43,16 @@ const employees: Employee[] = [
     initials: "AT",
     accent: "#f59e0b",
     badge: "Included",
-    description: "Briefs you on what got done and what needs you next — so nothing slips.",
+    description: "Runs the team and briefs you each morning on what got done and what needs you next — so nothing slips.",
+  },
+  {
+    name: "Nova",
+    role: "Marketing",
+    initials: "NV",
+    accent: "#34d399",
+    badge: "Beta",
+    description:
+      "Drafts on-brand content and campaigns to keep your name in front of your market. In beta.",
   },
   {
     name: "Opus",
@@ -52,13 +62,13 @@ const employees: Employee[] = [
     description: "Preps a one-pager for every booked meeting and tracks each task to closure.",
   },
   {
-    name: "Nova",
-    role: "Marketing",
-    initials: "NV",
-    accent: "#34d399",
-    badge: "BETA",
+    name: "Reception",
+    role: "Calls & front desk",
+    initials: "RC",
+    accent: "#22d3ee",
+    badge: "Coming",
     description:
-      "Drafts on-brand content and campaigns. In beta — an early preview of where Surge is going next.",
+      "Answers and places calls — books and reschedules by phone so you never miss a customer.",
   },
 ];
 
@@ -81,11 +91,13 @@ const steps = [
 ];
 
 const offerFeatures = [
-  "Rebooks your old quotes & past customers — revenue from a list you already own, no ad spend.",
+  "Researches & rebooks your old quotes and past customers — revenue from a list you already own, no ad spend.",
   "Answers every new lead in under 2 minutes, 24/7 — in home services, speed wins the job.",
+  "On-brand marketing that keeps your name in front of your market — Nova, in beta.",
   "You approve every message before it sends. Nothing goes out you wouldn't say yourself.",
-  "Weekly results report — appointments booked, jobs in motion. Real numbers only.",
-  "White-glove setup — I personally tune it to your business and your voice, then it runs hands-off.",
+  "Weekly results report — appointments booked, jobs in motion. Every number is real, never inflated.",
+  "White-glove setup — tuned to your business and your voice, then it runs hands-off.",
+  "Phone reception that answers and books calls — coming next.",
   "Month-to-month. Cancel anytime. You close the jobs; we fill your calendar.",
 ];
 
@@ -93,12 +105,12 @@ const faqs = [
   {
     question: "Is this just ChatGPT?",
     answer:
-      "No. ChatGPT is a general assistant. Surge is a specialized AI sales team with persistent memory of your business — your customers, your voice, your jobs — that takes real action: rebooks leads, drafts outreach, books appointments. You don't prompt it. You approve it.",
+      "No. ChatGPT is a general assistant. Surge is a specialized AI workforce with persistent memory of your business — your customers, your voice, your jobs — that takes real action: researches and rebooks leads, drafts outreach, books appointments, and keeps your marketing going. You don't prompt it. You approve it.",
   },
   {
     question: "What does it actually do?",
     answer:
-      "Aria rebooks your old quotes and past customers and answers every new lead in under two minutes — researching, drafting in your voice, and booking qualified appointments on your calendar. You approve before anything sends, and you close the jobs. Reports weekly — real numbers only.",
+      "Your team works the whole funnel: Aria researches and rebooks old quotes, answers every new lead in under two minutes, drafts in your voice, and books qualified appointments; Nova (beta) drafts on-brand marketing; Atlas runs the team and briefs you daily. Phone reception is coming next. You approve before anything sends, and you close the jobs. Every number in your weekly report is real — never inflated.",
   },
   {
     question: "What does it cost?",
@@ -246,18 +258,18 @@ function Hero() {
           className="text-4xl sm:text-5xl md:text-7xl font-semibold tracking-tight text-balance"
           style={{ color: "#ffffff" }}
         >
-          We book jobs from the customers you already have.
+          We find, message, and book your next customers.
         </motion.h1>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
           className="mt-6 text-lg md:text-xl max-w-2xl mx-auto text-pretty"
-          style={{ color: "rgba(232,234,240,0.74)" }}
+          style={{ color: "rgba(236,238,244,0.86)" }}
         >
-          Surge puts an AI sales team on your business — it rebooks your old quotes and answers every new
-          lead in under two minutes, so you stop losing work to whoever called back first. You approve
-          every message. <span style={{ color: "#fff", fontWeight: 500 }}>You pay nothing until qualified appointments are booked on your calendar.</span>
+          Surge staffs your business with an AI workforce — it researches and rebooks your old quotes,
+          answers every new lead in under two minutes, drafts on-brand marketing, and books qualified
+          appointments. You approve every message. <span style={{ color: "#fff", fontWeight: 500 }}>You pay nothing until qualified appointments are booked on your calendar.</span>
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -397,7 +409,7 @@ function Team() {
             The team behind your results
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            One sales engine, run for you. You approve the work; they fill your calendar.
+            One AI workforce, run for you. You approve the work; they fill your calendar.
           </p>
         </motion.div>
         <div className="grid sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
