@@ -551,6 +551,15 @@ grant execute on function resolve_tracked_link(text) to anon, authenticated;
 -- comparison. Pure additive column. Safe to re-run.
 alter table lead_drafts add column if not exists ab_variant text;
 
+-- ===================== manual_crm_migration.sql =====================
+-- Manual CRM: owner override flag + won/lost stages + click promotion respects the override.
+-- (Run the full register_link_click redefinition from manual_crm_migration.sql in prod; here we
+-- include the additive column + constraint, the load-bearing parts for the app to function.)
+alter table leads add column if not exists manual_override boolean not null default false;
+alter table leads drop constraint if exists leads_status_check;
+alter table leads add constraint leads_status_check
+  check (status in ('new','inbound','engaged','qualified','drafted','contacted','warm','replied','meeting','won','lost','disqualified','recycled'));
+
 -- ===================== SANITY CHECK =====================
 select
   (select count(*) from companies where is_internal) as internal_companies,

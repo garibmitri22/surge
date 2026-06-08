@@ -228,6 +228,7 @@ export type Database = {
           last_seen_at: string | null;
           past_value: number | null;
           relationship: string | null;
+          manual_override: boolean;
         };
         Insert: {
           id?: string;
@@ -261,6 +262,7 @@ export type Database = {
           last_seen_at?: string | null;
           past_value?: number | null;
           relationship?: string | null;
+          manual_override?: boolean;
         };
         Update: Partial<Database['public']['Tables']['leads']['Insert']>;
         Relationships: [];

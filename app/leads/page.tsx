@@ -1,16 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getLeads, getDrafts, getLeadMessages, callLeadNow, runTask, type Lead, type LeadDraft, type LeadMessage } from '@/lib/leads';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { getLeads, getDrafts, getLeadMessages, callLeadNow, runTask, updateLeadStatus, updateLeadFields, deleteLead, bulkMoveLeads, bulkDeleteLeads, LEAD_STAGES, stageLabel, type Lead, type LeadDraft, type LeadMessage } from '@/lib/leads';
 import { createTask, getTasks } from '@/lib/data';
 import { RunProgress } from '@/components/RunProgress';
 
 const VERTICAL_LABEL: Record<string, string> = { med_spa: 'Med Spa', real_estate: 'Real Estate', gym: 'Gym', other: 'Other' };
 const STATUS_COLOR: Record<string, string> = {
   new: '#9ca3af', inbound: '#0d9488', engaged: '#0891b2', qualified: '#6366f1', drafted: '#8b5cf6', contacted: '#0891b2',
-  warm: '#ea580c', replied: '#16a34a', meeting: '#16a34a', disqualified: '#9ca3af', recycled: '#d97706',
+  warm: '#ea580c', replied: '#16a34a', meeting: '#16a34a', won: '#16a34a', lost: '#ef4444', disqualified: '#9ca3af', recycled: '#d97706',
 };
 const fmtDate = (s: string | null) => (s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+const editInputStyle: CSSProperties = { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 10px', fontSize: '12.5px', color: 'var(--text-primary)', outline: 'none', width: '100%', fontFamily: 'inherit' };
 
 // Trust stamp: where a lead came from + how recently it was verified. Makes "7 leads"
 // read as real, not demo. Derived from the real source/source_url — never invented.
@@ -144,6 +145,61 @@ export default function LeadsPage() {
     }
   }
 
+  // ---- Manual CRM: the owner gets the wheel -------------------------------------------------
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<{ id: string; businessName: string; email: string; phone: string; notes: string } | null>(null);
+  const [crmBusy, setCrmBusy] = useState(false);
+
+  async function refreshLeads() {
+    const [l, d] = await Promise.all([getLeads(), getDrafts()]);
+    const now = Date.now();
+    setLeads(l); setDrafts(d); setNowTs(now);
+    setOverdueCount(l.filter((x) => new Date(x.nextActionAt).getTime() < now && !['disqualified', 'meeting', 'recycled', 'won', 'lost'].includes(x.status)).length);
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  }
+
+  // MOVE one lead's stage (optimistic; it's a manual override Aria will respect).
+  async function moveLead(l: Lead, status: string) {
+    if (status === l.status) return;
+    setLeads((prev) => prev.map((x) => (x.id === l.id ? { ...x, status } : x)));
+    try { await updateLeadStatus(l.id, status, l.businessName); } catch { /* fall through to refresh */ }
+    await refreshLeads();
+  }
+
+  // DELETE one lead (confirm) — replaces the old SQL-editor workaround.
+  async function removeLead(l: Lead) {
+    if (typeof window !== 'undefined' && !window.confirm(`Delete "${l.businessName}"? This permanently removes the lead and its drafts.`)) return;
+    setLeads((prev) => prev.filter((x) => x.id !== l.id));
+    setSelected((prev) => { const n = new Set(prev); n.delete(l.id); return n; });
+    if (expanded === l.id) setExpanded(null);
+    try { await deleteLead(l.id, l.businessName); } catch { /* fall through */ }
+    await refreshLeads();
+  }
+
+  async function saveEdit(l: Lead) {
+    if (!editing || editing.id !== l.id) return;
+    setCrmBusy(true);
+    try {
+      await updateLeadFields(l.id, { businessName: editing.businessName, email: editing.email, phone: editing.phone, notes: editing.notes }, l.businessName);
+      setEditing(null); await refreshLeads();
+    } catch { /* keep the form open */ } finally { setCrmBusy(false); }
+  }
+
+  async function bulkMove(status: string) {
+    const ids = [...selected]; if (ids.length === 0) return;
+    setCrmBusy(true);
+    try { await bulkMoveLeads(ids, status); setSelected(new Set()); await refreshLeads(); } finally { setCrmBusy(false); }
+  }
+  async function bulkRemove() {
+    const ids = [...selected]; if (ids.length === 0) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Delete ${ids.length} lead${ids.length === 1 ? '' : 's'}? This permanently removes them and their drafts.`)) return;
+    setCrmBusy(true);
+    try { await bulkDeleteLeads(ids); setSelected(new Set()); await refreshLeads(); } finally { setCrmBusy(false); }
+  }
+
   return (
     <div className="page-pad" style={{ padding: '32px 36px', animation: 'fadeIn 0.3s ease' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
@@ -194,8 +250,23 @@ export default function LeadsPage() {
       {/* Filters */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <FilterRow label="Vertical" value={vFilter} setValue={setVFilter} options={['all', 'med_spa', 'real_estate', 'gym', 'other']} fmt={(o) => (o === 'all' ? 'All' : VERTICAL_LABEL[o])} />
-        <FilterRow label="Status" value={sFilter} setValue={setSFilter} options={['all', 'qualified', 'drafted', 'contacted', 'warm', 'meeting', 'replied', 'disqualified']} fmt={(o) => (o === 'all' ? 'All' : o)} />
+        <FilterRow label="Status" value={sFilter} setValue={setSFilter} options={['all', 'qualified', 'drafted', 'contacted', 'warm', 'meeting', 'won', 'lost', 'disqualified']} fmt={(o) => (o === 'all' ? 'All' : stageLabel(o))} />
       </div>
+
+      {/* Bulk action bar — clean a batch at once (move or delete) */}
+      {selected.size > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', background: 'var(--accent-dim)', border: '1px solid #6366f130', borderRadius: '12px', padding: '10px 16px', marginBottom: '14px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>{selected.size} selected</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Move to</span>
+          <select disabled={crmBusy} defaultValue="" onChange={(e) => { if (e.target.value) { bulkMove(e.target.value); e.target.value = ''; } }}
+            style={{ fontSize: '12px', padding: '6px 8px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text-primary)', cursor: 'pointer' }}>
+            <option value="" disabled>Choose a stage…</option>
+            {LEAD_STAGES.map((s) => <option key={s} value={s}>{stageLabel(s)}</option>)}
+          </select>
+          <button disabled={crmBusy} onClick={bulkRemove} style={{ fontSize: '12px', fontWeight: 700, color: 'var(--red)', background: '#ef444412', border: '1px solid #ef444440', borderRadius: '8px', padding: '6px 12px', cursor: crmBusy ? 'default' : 'pointer' }}>Delete selected</button>
+          <button onClick={() => setSelected(new Set())} style={{ fontSize: '12px', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', marginLeft: 'auto' }}>Clear</button>
+        </div>
+      )}
 
       {loaded && leads.length === 0 ? (
         <div style={{ background: 'var(--card)', border: '1px dashed var(--border)', borderRadius: '16px', padding: '48px', textAlign: 'center' }}>
@@ -206,8 +277,11 @@ export default function LeadsPage() {
         </div>
       ) : (
         <div className="leads-scroll" style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', boxShadow: 'var(--shadow)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 90px 110px 1.4fr', gap: '12px', padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-            {['Business', 'Vertical', 'Score', 'Status', 'Next action'].map((h) => (
+          <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 110px 90px 130px 1.4fr', gap: '12px', padding: '12px 20px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', alignItems: 'center' }}>
+            <input type="checkbox" aria-label="Select all" checked={filtered.length > 0 && filtered.every((l) => selected.has(l.id))}
+              onChange={(e) => setSelected(e.target.checked ? new Set(filtered.map((l) => l.id)) : new Set())}
+              style={{ cursor: 'pointer', accentColor: 'var(--accent)', width: '15px', height: '15px' }} />
+            {['Business', 'Vertical', 'Score', 'Stage', 'Next action'].map((h) => (
               <p key={h} style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.8px', fontWeight: '700' }}>{h}</p>
             ))}
           </div>
@@ -223,8 +297,9 @@ export default function LeadsPage() {
                 <div
                   onClick={() => toggle(l.id)}
                   className="table-row"
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 110px 90px 110px 1.4fr', gap: '12px', padding: '14px 20px', alignItems: 'center', cursor: 'pointer' }}
+                  style={{ display: 'grid', gridTemplateColumns: '28px 1fr 110px 90px 130px 1.4fr', gap: '12px', padding: '14px 20px', alignItems: 'center', cursor: 'pointer' }}
                 >
+                  <input type="checkbox" checked={selected.has(l.id)} onClick={(e) => e.stopPropagation()} onChange={() => toggleSelect(l.id)} aria-label={`Select ${l.businessName}`} style={{ cursor: 'pointer', accentColor: 'var(--accent)', width: '15px', height: '15px' }} />
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {l.businessName}
@@ -237,7 +312,11 @@ export default function LeadsPage() {
                   </div>
                   <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{VERTICAL_LABEL[l.vertical] || l.vertical}</span>
                   <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)' }}>{l.score}</span>
-                  <span style={{ fontSize: '11px', color: STATUS_COLOR[l.status] || 'var(--text-dim)', background: (STATUS_COLOR[l.status] || '#9ca3af') + '18', padding: '3px 8px', borderRadius: '999px', fontWeight: '600', textTransform: 'capitalize', justifySelf: 'start' }}>{l.status}</span>
+                  <select value={l.status} onClick={(e) => e.stopPropagation()} onChange={(e) => { e.stopPropagation(); moveLead(l, e.target.value); }} title="Move this lead — Aria respects your choice"
+                    style={{ fontSize: '11px', color: STATUS_COLOR[l.status] || 'var(--text-dim)', background: (STATUS_COLOR[l.status] || '#9ca3af') + '18', border: `1px solid ${(STATUS_COLOR[l.status] || '#9ca3af')}40`, padding: '4px 6px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize', width: '100%' }}>
+                    {!(LEAD_STAGES as readonly string[]).includes(l.status) && <option value={l.status}>{stageLabel(l.status)}</option>}
+                    {LEAD_STAGES.map((s) => <option key={s} value={s}>{stageLabel(s)}</option>)}
+                  </select>
                   <span style={{ fontSize: '12px', color: overdue ? 'var(--red)' : 'var(--text-secondary)', fontWeight: overdue ? '600' : '400' }}>
                     {l.nextAction} <span style={{ color: overdue ? 'var(--red)' : 'var(--text-dim)' }}>· {l.nextActionAt?.slice(0, 10)}{overdue ? ' (overdue)' : ''}</span>
                   </span>
@@ -328,6 +407,30 @@ export default function LeadsPage() {
                         ))}
                       </div>
                     )}
+
+                    {/* Owner controls — correct Aria's data, or remove the lead (no SQL needed) */}
+                    <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border)' }}>
+                      {editing?.id === l.id ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '560px' }}>
+                          <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Edit lead</p>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <input value={editing.businessName} onChange={(e) => setEditing({ ...editing, businessName: e.target.value })} placeholder="Business name" style={editInputStyle} />
+                            <input value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} placeholder="Email" style={editInputStyle} />
+                            <input value={editing.phone} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} placeholder="Phone" style={editInputStyle} />
+                            <input value={editing.notes} onChange={(e) => setEditing({ ...editing, notes: e.target.value })} placeholder="Notes" style={editInputStyle} />
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                            <button disabled={crmBusy} onClick={() => saveEdit(l)} className="btn-primary" style={{ padding: '7px 16px', fontSize: '12px' }}>Save changes</button>
+                            <button onClick={() => setEditing(null)} className="btn-ghost" style={{ padding: '7px 16px', fontSize: '12px' }}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                          <button onClick={() => setEditing({ id: l.id, businessName: l.businessName, email: l.email || '', phone: l.phone || '', notes: l.notes || '' })} style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}>✎ Edit lead</button>
+                          <button onClick={() => removeLead(l)} style={{ fontSize: '12px', fontWeight: 600, color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer' }}>🗑 Delete lead</button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
