@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { getTasks, getEmployees, createTask, updateTaskStatus } from '@/lib/data';
-import { runTask } from '@/lib/leads';
+import { runTask, getLeads, getDrafts } from '@/lib/leads';
+import { RunProgress } from '@/components/RunProgress';
 import type { Task, Employee } from '@/lib/mockData';
 
 const priorityColors: Record<string, string> = {
@@ -20,8 +22,12 @@ const statusColors: Record<string, string> = {
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [running, setRunning] = useState<string | null>(null);
-  const [runNote, setRunNote] = useState<string | null>(null);
+  const router = useRouter();
+  const [running, setRunning] = useState<string | null>(null); // task id currently running (also the in-flight guard)
+  const [runDone, setRunDone] = useState(false);
+  const [runFailed, setRunFailed] = useState(false);
+  const [runLeads, setRunLeads] = useState(0);   // NEW leads this run
+  const [runDrafts, setRunDrafts] = useState(0); // NEW drafts this run
   const [filter, setFilter] = useState<'all' | 'queued' | 'in_progress' | 'completed'>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -70,27 +76,22 @@ export default function TasksPage() {
   }
 
   async function handleRun(taskId: string) {
-    setRunning(taskId);
-    setRunNote('Aria is working in the background — this can take a minute…');
+    if (running) return;
+    setRunning(taskId); setRunDone(false); setRunFailed(false); setRunLeads(0); setRunDrafts(0);
+    const [bl, bd] = await Promise.all([getLeads(), getDrafts()]).then(([l, d]) => [l.length, d.length] as const).catch(() => [0, 0] as const);
     const r = await runTask(taskId);
-    if (!r.ok) {
-      setRunning(null);
-      // quota_exceeded is an in-character capacity message — an upsell, not an error.
-      setRunNote(r.quota_exceeded ? (r.message ?? 'This employee has hit their monthly capacity.') : `Run failed: ${r.error ?? 'unknown error'}`);
-      return;
-    }
-    // The run was ACCEPTED and works in the background — poll the task until it completes,
-    // refreshing the board, then point the owner to the results.
+    if (!r.ok) { setRunFailed(true); setRunning(null); return; } // RunProgress shows the failure state
+    // ACCEPTED — poll the task + real counts so the card can show Researching → Drafting → Done.
     const deadline = Date.now() + 6 * 60 * 1000;
     while (Date.now() < deadline) {
       await new Promise((res) => setTimeout(res, 4000));
-      const tks = await getTasks();
+      const [tks, l, d] = await Promise.all([getTasks(), getLeads(), getDrafts()]);
       setTasks(tks);
+      setRunLeads(Math.max(0, l.length - bl)); setRunDrafts(Math.max(0, d.length - bd));
       const t = tks.find((x) => x.id === taskId);
       if (!t || t.status === 'completed') break;
     }
-    setRunning(null);
-    setRunNote('Done — Aria finished this run. Open the Leads page to review the new leads and drafts.');
+    setRunDone(true); setRunning(null); // land on a completion state, never silently back to "Run"
   }
 
   return (
@@ -136,10 +137,13 @@ export default function TasksPage() {
         ))}
       </div>
 
-      {runNote && (
-        <div style={{ background: 'var(--accent-dim)', border: '1px solid #6366f130', borderRadius: '10px', padding: '11px 16px', marginBottom: '14px', fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {running && <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent)', animation: 'pulse-green 1.2s infinite', flexShrink: 0 }} />}
-          {runNote}
+      {(running || runDone || runFailed) && (
+        <div style={{ marginBottom: '14px' }}>
+          <RunProgress
+            inFlight={!!running} completed={runDone} failed={runFailed} leads={runLeads} drafts={runDrafts}
+            onReview={() => router.push('/leads')} reviewLabel="Review on Leads"
+            onRunAgain={() => { setRunDone(false); setRunFailed(false); }} runAgainLabel="Dismiss"
+          />
         </div>
       )}
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getLeads, getDrafts, getLeadMessages, callLeadNow, runTask, type Lead, type LeadDraft, type LeadMessage } from '@/lib/leads';
 import { createTask, getTasks } from '@/lib/data';
+import { RunProgress } from '@/components/RunProgress';
 
 const VERTICAL_LABEL: Record<string, string> = { med_spa: 'Med Spa', real_estate: 'Real Estate', gym: 'Gym', other: 'Other' };
 const STATUS_COLOR: Record<string, string> = {
@@ -63,40 +64,34 @@ export default function LeadsPage() {
   // day-one activation. The run is async (ACKS immediately, researches in the background), so
   // we create a task, kick it, then POLL — refreshing the pipeline so leads/drafts appear as
   // they're written and finishing when the task completes.
-  const [runningAria, setRunningAria] = useState(false);
-  const [runNote, setRunNote] = useState('');
+  // Legible run state machine (shared with the dashboard + tasks). Poll the REAL counts and
+  // let RunProgress derive Queued → Researching → Drafting → Done. Idle shows the kick button.
+  const [runActive, setRunActive] = useState(false);
+  const [runDone, setRunDone] = useState(false);
+  const [runFailed, setRunFailed] = useState(false);
+  const [runLeads, setRunLeads] = useState(0);   // NEW leads this run
+  const [runDrafts, setRunDrafts] = useState(0); // NEW drafts this run
   async function runAriaNow() {
-    if (runningAria) return;
-    setRunningAria(true);
-    setRunNote('Aria is researching real businesses — this takes a minute…');
-    const before = leads.length;
+    if (runActive) return;
+    setRunActive(true); setRunDone(false); setRunFailed(false); setRunLeads(0); setRunDrafts(0);
+    const beforeLeads = leads.length, beforeDrafts = drafts.length;
     try {
       const task = await createTask({ title: 'Find & score new leads', assigneeId: 'aria', priority: 'high', project: 'Prospecting', dueDate: '' });
       const r = await runTask(task.id);
-      if (!r.ok) {
-        setRunNote(r.quota_exceeded ? (r.message ?? 'Aria has hit her capacity for now.') : `Run failed: ${r.error ?? 'unknown error'} — try again in a moment.`);
-        return;
-      }
-      // Accepted — poll until the task completes (or it's released on failure), surfacing
-      // new leads as they land.
+      if (!r.ok) { setRunFailed(true); setRunActive(false); return; }
       const deadline = Date.now() + 6 * 60 * 1000;
       while (Date.now() < deadline) {
         await new Promise((res) => setTimeout(res, 4000));
         const [l, d, tks] = await Promise.all([getLeads(), getDrafts(), getTasks()]);
         setLeads(l); setDrafts(d); setNowTs(Date.now());
-        const made = Math.max(0, l.length - before);
+        setRunLeads(Math.max(0, l.length - beforeLeads));
+        setRunDrafts(Math.max(0, d.length - beforeDrafts));
         const t = tks.find((x) => x.id === task.id);
-        if (!t || t.status === 'completed') {
-          setRunNote(`Found ${made} new lead${made === 1 ? '' : 's'} this run (${d.length} draft${d.length === 1 ? '' : 's'} in the pipeline) — run again to keep building, or Aria tops up daily.`);
-          return;
-        }
-        setRunNote(`Aria is working… ${made} new lead${made === 1 ? '' : 's'} so far.`);
+        if (!t || t.status === 'completed') break;
       }
-      setRunNote('Aria is still working — leads will keep landing here; check back shortly.');
+      setRunDone(true); setRunActive(false); // land on a completion state, never a bare button
     } catch {
-      setRunNote('Could not start the run — please try again.');
-    } finally {
-      setRunningAria(false);
+      setRunFailed(true); setRunActive(false);
     }
   }
 
@@ -158,17 +153,14 @@ export default function LeadsPage() {
             Aria&apos;s pipeline — real businesses, scored and ranked.{' '}
             {overdueCount > 0 && <span style={{ color: 'var(--red)', fontWeight: '600' }}>{overdueCount} overdue action{overdueCount > 1 ? 's' : ''}.</span>}
           </p>
-          {runNote && (
-            <p style={{ fontSize: '12.5px', color: runningAria ? 'var(--accent)' : 'var(--text-secondary)', marginTop: '8px', fontWeight: 600 }}>
-              {runningAria && <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent)', marginRight: '7px', animation: 'pulse-green 1.5s infinite' }} />}
-              {runNote}
-            </p>
-          )}
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <button onClick={runAriaNow} disabled={runningAria} style={{ background: runningAria ? 'var(--surface)' : 'var(--accent)', color: runningAria ? 'var(--text-dim)' : '#fff', border: 'none', borderRadius: '10px', padding: '12px 18px', fontSize: '13px', fontWeight: '700', cursor: runningAria ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
-            {runningAria ? 'Aria is working…' : '▶ Run Aria now'}
-          </button>
+          {/* Honest idle: the kick button only shows when nothing is running and nothing's waiting to be reviewed. */}
+          {!runActive && !runDone && !runFailed && (
+            <button onClick={runAriaNow} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '12px 18px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              ▶ Run Aria now
+            </button>
+          )}
           {inboundCount > 0 && (
             <div style={{ background: '#0d948810', border: '1px solid #0d948840', borderRadius: '12px', padding: '12px 18px', textAlign: 'right' }}>
               <p style={{ fontSize: '24px', fontWeight: '800', color: '#0d9488', fontFamily: 'var(--font-geist-mono)', lineHeight: 1 }}>{inboundCount}</p>
@@ -187,6 +179,17 @@ export default function LeadsPage() {
           </div>
         </div>
       </div>
+
+      {/* Legible run state — alive working card → completion (review primary, run-again secondary) */}
+      {(runActive || runDone || runFailed) && (
+        <div style={{ marginBottom: '20px' }}>
+          <RunProgress
+            inFlight={runActive} completed={runDone} failed={runFailed} leads={runLeads} drafts={runDrafts}
+            onReview={() => { setRunDone(false); setRunFailed(false); }} reviewLabel="See your leads"
+            onRunAgain={runActive ? undefined : runAriaNow}
+          />
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>

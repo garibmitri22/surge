@@ -10,6 +10,7 @@ import { AtlasBrief } from '@/components/AtlasBrief';
 import { HoursWidget } from '@/components/HoursWidget';
 import { DEPARTMENTS } from '@/lib/departments.mjs';
 import { estimatePipeline } from '@/lib/briefing.mjs';
+import { computeRunPhase, runProgressLabel } from '@/lib/run-progress.mjs';
 
 const empColors: Record<string, string> = { aria: '#a78bfa', nova: '#34d399', opus: '#60a5fa', atlas: '#f59e0b' };
 
@@ -60,6 +61,7 @@ export default function Dashboard() {
   const [avgDeal, setAvgDeal] = useState<number | null>(null);
   const [activating, setActivating] = useState(false);
   const [activatingLeads, setActivatingLeads] = useState(0);
+  const [activatingDrafts, setActivatingDrafts] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +82,7 @@ export default function Dashboard() {
             try {
               const s2 = await getActivationStatus();
               setActivatingLeads(s2.leadCount);
+              setActivatingDrafts(s2.draftCount);
               if (s2.activated) break;
             } catch { /* transient — keep polling */ }
           }
@@ -140,21 +143,28 @@ export default function Dashboard() {
   const recentTasks = tasks.filter(t => t.status === 'in_progress').slice(0, 3);
 
   if (activating) {
+    // Phase-aware takeover: Queued → Researching (leads ticking) → Drafting → (lands on dashboard).
+    const phase = computeRunPhase({ inFlight: true, leads: activatingLeads, drafts: activatingDrafts });
+    const { title, sub } = runProgressLabel(phase, { leads: activatingLeads, drafts: activatingDrafts });
+    const ticker = phase === 'drafting' ? activatingDrafts : activatingLeads;
+    const tickerLabel = phase === 'drafting' ? `draft${activatingDrafts === 1 ? '' : 's'} written` : `real lead${activatingLeads === 1 ? '' : 's'} found`;
     return (
       <div className="page-pad" style={{ padding: '32px 36px', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', maxWidth: '460px', animation: 'fadeIn 0.3s ease' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
             <PresenceOrb employeeId="aria" state="working" size={120} aria-label="Aria working" />
           </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>Your team is going to work right now.</h1>
-          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Aria is researching and scoring your first real leads and drafting outreach for your review. This takes a minute — no need to wait here, it&rsquo;ll be ready when you land on your dashboard.
-          </p>
-          {activatingLeads > 0 && (
-            <p style={{ fontSize: '15px', fontWeight: 700, color: 'var(--accent)', marginTop: '14px' }}>
-              {activatingLeads} real lead{activatingLeads === 1 ? '' : 's'} found so far…
+          <h1 suppressHydrationWarning style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px' }}>{title}</h1>
+          <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{sub}</p>
+          {ticker > 0 && (
+            <p style={{ marginTop: '16px' }}>
+              <span key={ticker} style={{ fontSize: '34px', fontWeight: 800, color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)', display: 'inline-block', animation: 'fadeIn 0.4s ease' }}>{ticker}</span>
+              <span style={{ fontSize: '13px', color: 'var(--text-dim)', marginLeft: '8px' }}>{tickerLabel}</span>
             </p>
           )}
+          <p style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '14px', lineHeight: 1.6 }}>
+            No need to wait here — it&rsquo;ll be ready on your dashboard.
+          </p>
         </div>
       </div>
     );
