@@ -18,7 +18,9 @@ function subscribeMobile(cb: () => void) {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const hideSidebar = NO_SIDEBAR.includes(pathname) || pathname.startsWith('/legal');
+  // Marketing/showcase surfaces (landing, legal, the cinematic agent pages) are full-bleed —
+  // no app sidebar, and not behind the in-app auth guard.
+  const hideSidebar = NO_SIDEBAR.includes(pathname) || pathname.startsWith('/legal') || pathname.startsWith('/agents');
 
   const isMobile = useSyncExternalStore(
     subscribeMobile,

@@ -5,6 +5,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, PenLine, CalendarCheck, Check, ChevronDown, Menu, X } from "lucide-react";
+import { CinematicBackground } from "@/components/CinematicBackground";
+import { PresenceOrb } from "@/components/PresenceOrb";
 
 // First motion is a conversation, not self-serve. All primary CTAs point here.
 // (Placeholder — swap for the real booking link / Calendly when it's live.)
@@ -206,13 +208,33 @@ function Header() {
 
 function Hero() {
   return (
-    <section className="relative min-h-[90vh] flex items-center justify-center px-6 py-24">
-      <div className="max-w-4xl mx-auto text-center">
+    <section
+      className="relative flex items-center justify-center overflow-hidden px-6"
+      style={{ minHeight: "94vh", background: "#05060a" }}
+    >
+      {/* Living, code-rendered atmospheric stage — no video, all shader. */}
+      <CinematicBackground color="#f59e0b" intensity={0.95} />
+
+      <div className="relative z-10 max-w-4xl mx-auto text-center" style={{ paddingTop: 32, paddingBottom: 64 }}>
+        {/* Atlas — the living presence, on its stage. */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.88 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.9, ease: "easeOut" }}
+          className="flex justify-center mb-9"
+        >
+          <div style={{ position: "relative", width: 168, height: 168 }}>
+            <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "radial-gradient(circle, #f59e0b40 0%, transparent 62%)", filter: "blur(18px)" }} />
+            <PresenceOrb employeeId="atlas" state="idle" size={168} aria-label="Surge — your AI team" />
+          </div>
+        </motion.div>
+
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-sm font-medium uppercase tracking-wide text-primary mb-5"
+          className="text-sm font-medium uppercase tracking-wide mb-5"
+          style={{ color: "#f59e0b" }}
         >
           Done-for-you AI growth · Home services
         </motion.p>
@@ -220,7 +242,8 @@ function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.05 }}
-          className="text-4xl sm:text-5xl md:text-7xl font-semibold tracking-tight text-foreground text-balance"
+          className="text-4xl sm:text-5xl md:text-7xl font-semibold tracking-tight text-balance"
+          style={{ color: "#ffffff" }}
         >
           We book jobs from the customers you already have.
         </motion.h1>
@@ -228,17 +251,18 @@ function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="mt-6 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto text-pretty"
+          className="mt-6 text-lg md:text-xl max-w-2xl mx-auto text-pretty"
+          style={{ color: "rgba(232,234,240,0.74)" }}
         >
           Surge puts an AI sales team on your business — it rebooks your old quotes and answers every new
           lead in under two minutes, so you stop losing work to whoever called back first. You approve
-          every message. <span className="text-foreground font-medium">You pay nothing until qualified appointments are booked on your calendar.</span>
+          every message. <span style={{ color: "#fff", fontWeight: 500 }}>You pay nothing until qualified appointments are booked on your calendar.</span>
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="mt-10"
+          className="mt-10 flex flex-wrap items-center justify-center gap-3"
         >
           <Button
             asChild
@@ -247,14 +271,22 @@ function Hero() {
           >
             <a href={BOOK_CALL}>See it on your list — book 15 min</a>
           </Button>
+          <Link
+            href="/agents"
+            className="inline-flex items-center gap-2 rounded-md border px-6 py-3 text-base font-medium transition-colors"
+            style={{ borderColor: "rgba(255,255,255,0.16)", color: "#fff" }}
+          >
+            Meet the team →
+          </Link>
         </motion.div>
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="mt-6 text-sm text-muted-foreground"
+          className="mt-6 text-sm"
+          style={{ color: "rgba(255,255,255,0.55)" }}
         >
-          Founding-customer rate: <span className="text-foreground font-medium">$1,500/mo, locked for life.</span>
+          Real numbers. Never faked. Founding-customer rate: <span style={{ color: "#fff", fontWeight: 500 }}>$1,500/mo, locked for life.</span>
         </motion.p>
       </div>
     </section>

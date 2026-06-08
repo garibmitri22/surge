@@ -13,6 +13,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 const PUBLIC_PATHS = [
   '/login', '/signup', '/landing', '/legal', '/api/unsubscribe', '/auth/confirm', '/api/cron',
   '/api/debug-error',
+  // Marketing/showcase — the cinematic per-agent character pages are public.
+  '/agents',
   // Warm-signal: prospects (anonymous) hit the tracked-CTA redirect, the hosted
   // interest page, and its booking submit. All must be reachable without a session.
   '/api/r', '/book', '/api/book',
