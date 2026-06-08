@@ -5,6 +5,7 @@ import { EmployeeAvatar } from '@/components/EmployeeAvatar';
 import { MicButton } from '@/components/MicButton';
 import { SpeakButton } from '@/components/SpeakButton';
 import { PresenceOrb } from '@/components/PresenceOrb';
+import { VoiceChat } from '@/components/VoiceChat';
 import type { OrbState } from '@/lib/persona-orb';
 
 // Dashboard centerpiece — Atlas, the Chief of Staff. His input is a conversation
@@ -165,6 +166,13 @@ export function AtlasBrief() {
           </div>
         )}
       </div>
+      )}
+
+      {/* Hands-free live voice — tap once and just talk to Atlas (JARVIS Phase 3). */}
+      {!collapsed && (
+        <div style={{ marginBottom: '12px' }}>
+          <VoiceChat employeeId="atlas" />
+        </div>
       )}
 
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
