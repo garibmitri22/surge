@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, MotionConfig } from "framer-motion";
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,22 @@ import { PresenceOrb } from "@/components/PresenceOrb";
 // (Placeholder — swap for the real booking link / Calendly when it's live.)
 const BOOK_CALL = "mailto:hello@surgehq.io?subject=Book%20a%2015-minute%20Surge%20walkthrough";
 const CONTACT_MAILTO = "mailto:hello@surgehq.io?subject=Surge%20inquiry";
+
+// ----------------------------------------------------------------------------
+// MOTION — premium, felt-not-noticed. One spring, used everywhere for identical feel.
+// MotionConfig reducedMotion="user" (in Page) makes every declarative animation here respect
+// prefers-reduced-motion automatically (transforms freeze; nothing janks readability).
+// ----------------------------------------------------------------------------
+const SPRING = { type: "spring", stiffness: 90, damping: 18, mass: 0.9 } as const;
+// Scroll-reveal: fade + a small rise, smooth spring (not linear). `i` staggers children ~60ms.
+const reveal = (i = 0) => ({
+  initial: { opacity: 0, y: 16 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-60px" } as const,
+  transition: { ...SPRING, delay: i * 0.06 },
+});
+// Identical interactive feel: spring press on tap/hover (buttons); cards use an inline `whileHover` lift.
+const PRESS = { whileHover: { scale: 1.02 }, whileTap: { scale: 0.97 }, transition: SPRING };
 
 // ============================================================================
 // DATA
@@ -237,8 +253,14 @@ function Hero() {
           className="flex justify-center mb-8"
         >
           <div style={{ position: "relative", width: 188, height: 188, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ position: "absolute", width: 188, height: 188, borderRadius: "50%", background: "radial-gradient(circle, #f59e0b66 0%, #f59e0b22 40%, transparent 68%)", filter: "blur(26px)" }} />
-            <PresenceOrb employeeId="atlas" state="idle" size={188} onDark aria-label="Surge — your AI team" />
+            {/* Soft grounded glow that breathes (frozen under reduced-motion via MotionConfig). */}
+            <motion.div
+              aria-hidden
+              style={{ position: "absolute", width: 188, height: 188, borderRadius: "50%", background: "radial-gradient(circle, #f59e0b66 0%, #f59e0b22 40%, transparent 68%)", filter: "blur(26px)" }}
+              animate={{ scale: [1, 1.07, 1], opacity: [0.82, 1, 0.82] }}
+              transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <PresenceOrb employeeId="atlas" state="idle" size={188} onDark parallax aria-label="Surge — your AI team" />
           </div>
         </motion.div>
 
@@ -251,14 +273,28 @@ function Hero() {
         >
           Done-for-you AI growth · Home services
         </motion.p>
+        {/* Staggered word reveal on load — subtle + fast. Under reduced-motion the rise freezes
+            and words simply fade in (MotionConfig). aria-label keeps it one clean line for SRs. */}
         <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.05 }}
           className="text-4xl sm:text-5xl md:text-7xl font-semibold tracking-tight text-balance"
           style={{ color: "#ffffff" }}
+          initial="hidden"
+          animate="show"
+          variants={{ show: { transition: { staggerChildren: 0.045, delayChildren: 0.04 } } }}
+          aria-label="We find, message, and book your next customers."
         >
-          We find, message, and book your next customers.
+          {"We find, message, and book your next customers.".split(" ").map((w, i) => (
+            <motion.span
+              key={i}
+              aria-hidden
+              className="inline-block"
+              style={{ marginRight: "0.26em" }}
+              variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
+              transition={SPRING}
+            >
+              {w}
+            </motion.span>
+          ))}
         </motion.h1>
         <motion.p
           initial={{ opacity: 0, y: 20 }}
@@ -277,20 +313,24 @@ function Hero() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mt-10 flex flex-wrap items-center justify-center gap-3"
         >
-          <Button
-            asChild
-            size="lg"
-            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-lg font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary/25"
-          >
-            <a href={BOOK_CALL}>See it on your list — book 15 min</a>
-          </Button>
-          <Link
-            href="/agents"
-            className="inline-flex items-center gap-2 rounded-md border px-6 py-3 text-base font-medium transition-colors"
-            style={{ borderColor: "rgba(255,255,255,0.16)", color: "#fff" }}
-          >
-            Meet the team →
-          </Link>
+          <motion.div className="inline-block" {...PRESS}>
+            <Button
+              asChild
+              size="lg"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-lg font-medium shadow-lg shadow-primary/25"
+            >
+              <a href={BOOK_CALL}>See it on your list — book 15 min</a>
+            </Button>
+          </motion.div>
+          <motion.div className="inline-block" {...PRESS}>
+            <Link
+              href="/agents"
+              className="inline-flex items-center gap-2 rounded-md border px-6 py-3 text-base font-medium transition-colors"
+              style={{ borderColor: "rgba(255,255,255,0.16)", color: "#fff" }}
+            >
+              Meet the team →
+            </Link>
+          </motion.div>
         </motion.div>
         <motion.p
           initial={{ opacity: 0 }}
@@ -328,14 +368,7 @@ function HowItWorks() {
         </motion.div>
         <div className="grid md:grid-cols-3 gap-8">
           {steps.map((step, index) => (
-            <motion.div
-              key={step.title}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="text-center"
-            >
+            <motion.div key={step.title} {...reveal(index)} className="text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary mb-6">
                 <step.icon className="w-7 h-7" />
               </div>
@@ -361,10 +394,13 @@ function HowItWorks() {
 function EmployeeCard({ employee, index }: { employee: Employee; index: number }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
+      custom={index}
+      variants={{ hidden: { opacity: 0, y: 16 }, show: (i: number) => ({ opacity: 1, y: 0, transition: { ...SPRING, delay: i * 0.06 } }) }}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: "-60px" }}
+      whileHover={{ y: -4 }}
+      transition={SPRING}
       className="bg-card rounded-2xl p-6 border border-border shadow-sm hover:shadow-md transition-shadow duration-300"
     >
       <div className="flex items-center gap-4 mb-4">
@@ -491,10 +527,11 @@ function Offer() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.1 }}
+          viewport={{ once: true, margin: "-60px" }}
+          whileHover={{ y: -4 }}
+          transition={SPRING}
           className="relative rounded-2xl p-8 bg-background border border-border shadow-xl shadow-primary/10"
         >
           <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-medium px-3 py-1 rounded-full">
@@ -679,18 +716,21 @@ function Footer() {
 
 export default function Page() {
   return (
-    <main className="min-h-screen bg-background">
-      <Header />
-      <div className="pt-16">
-        <Hero />
-        <HowItWorks />
-        <Team />
-        <Proof />
-        <Offer />
-        <FAQ />
-        <FinalCTA />
-        <Footer />
-      </div>
-    </main>
+    // reducedMotion="user" → every animation below auto-respects prefers-reduced-motion.
+    <MotionConfig reducedMotion="user">
+      <main className="min-h-screen bg-background">
+        <Header />
+        <div className="pt-16">
+          <Hero />
+          <HowItWorks />
+          <Team />
+          <Proof />
+          <Offer />
+          <FAQ />
+          <FinalCTA />
+          <Footer />
+        </div>
+      </main>
+    </MotionConfig>
   );
 }

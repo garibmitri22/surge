@@ -161,6 +161,9 @@ export interface PresenceOrbProps {
   /** Light the orb for a DARK surface (brand/agent pages) — luminous + soft grounded glow.
    *  Default false = the calmer light-surface treatment used across the app. Same orb, lit for its room. */
   onDark?: boolean;
+  /** Premium hero presence: the orb drifts/tilts subtly toward the cursor. Reduced-motion safe
+   *  (no transform when the user prefers reduced motion). Pure CSS transform — no extra WebGL cost. */
+  parallax?: boolean;
   className?: string;
   style?: React.CSSProperties;
   'aria-label'?: string;
@@ -173,6 +176,7 @@ export function PresenceOrb({
   analyser = null,
   level,
   onDark = false,
+  parallax = false,
   className,
   style,
   'aria-label': ariaLabel,
@@ -340,6 +344,35 @@ export function PresenceOrb({
     };
     // Re-create only on size change; live props flow through propsRef.
   }, [size]);
+
+  // Premium hero presence — the orb drifts/tilts subtly toward the cursor. Pure CSS transform on the
+  // canvas mount (no extra WebGL work); fully disabled under prefers-reduced-motion. Motion is felt,
+  // not noticed: ~9px drift + ~5deg tilt, heavily smoothed.
+  useEffect(() => {
+    const el = mountRef.current;
+    if (!parallax || !el) return;
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let raf = 0, cx = 0, cy = 0, tx = 0, ty = 0;
+    const onMove = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect();
+      tx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (window.innerWidth / 2)));
+      ty = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (window.innerHeight / 2)));
+    };
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      cx += (tx - cx) * 0.05; cy += (ty - cy) * 0.05;
+      el.style.transform = `perspective(700px) translate3d(${(cx * 9).toFixed(2)}px, ${(cy * 9).toFixed(2)}px, 0) rotateY(${(cx * 5).toFixed(2)}deg) rotateX(${(-cy * 5).toFixed(2)}deg)`;
+    };
+    el.style.willChange = 'transform';
+    window.addEventListener('pointermove', onMove, { passive: true });
+    raf = requestAnimationFrame(tick);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      cancelAnimationFrame(raf);
+      el.style.transform = '';
+      el.style.willChange = '';
+    };
+  }, [parallax]);
 
   return (
     <div
