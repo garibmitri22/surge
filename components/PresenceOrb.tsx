@@ -139,6 +139,12 @@ const FRAGMENT = /* glsl */ `
     // Halo/ring take the deep tone on light; a glowing coloured tone on dark.
     vec3 haloTone = mix(deep * 0.5, base * (0.5 + 0.45 * lum), uOnDark);
     col = mix(haloTone, col, core / max(alpha, 0.001));
+
+    // SEAMLESS EDGE — radial alpha falloff to ZERO before the square canvas boundary, so the glow
+    // never clips into a visible box/rectangle. The orb melts into whatever's behind it (dark stage
+    // or light app), identically on every surface. r reaches ~1.0 at the canvas edges, ~1.41 corners.
+    alpha *= smoothstep(1.0, 0.72, r);
+
     gl_FragColor = vec4(col, alpha);
   }
 `;
