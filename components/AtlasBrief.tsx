@@ -7,6 +7,7 @@ import { SpeakButton } from '@/components/SpeakButton';
 import { PresenceOrb } from '@/components/PresenceOrb';
 import { VoiceChat } from '@/components/VoiceChat';
 import type { OrbState } from '@/lib/persona-orb';
+import { humanTime } from '@/lib/time';
 
 // Dashboard centerpiece — Atlas, the Chief of Staff. His input is a conversation
 // RIGHT HERE on the dashboard: it opens with his Morning Brief and you can keep
@@ -17,22 +18,6 @@ const BRIEF_ASK = 'Give me my morning brief for today.';
 const ATLAS_COLOR = '#f59e0b';
 
 interface Msg { role: 'user' | 'assistant'; content: string; createdAt?: string }
-
-// Honest, human time for message stamps: "3m ago" / "2:14 PM · Jun 8". Real times only.
-function humanTime(input: string | number | null | undefined): string {
-  if (input == null || input === '') return '';
-  if (typeof input === 'string' && Number.isNaN(Date.parse(input))) return input;
-  const d = new Date(input);
-  const ms = Date.now() - d.getTime();
-  if (ms >= 0) {
-    if (ms < 60_000) return 'just now';
-    if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
-    if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
-  }
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  const datePart = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
-  return `${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${datePart}`;
-}
 
 export function AtlasBrief() {
   const [messages, setMessages] = useState<Msg[]>([]);

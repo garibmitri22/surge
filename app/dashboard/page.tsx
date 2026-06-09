@@ -11,28 +11,9 @@ import { HoursWidget } from '@/components/HoursWidget';
 import { DEPARTMENTS } from '@/lib/departments.mjs';
 import { estimatePipeline } from '@/lib/briefing.mjs';
 import { computeRunPhase, runProgressLabel } from '@/lib/run-progress.mjs';
+import { humanTime } from '@/lib/time';
 
 const empColors: Record<string, string> = { aria: '#a78bfa', nova: '#34d399', opus: '#60a5fa', atlas: '#f59e0b' };
-
-// Honest, human time. Real timestamps → "2:14 PM · Jun 8" or "3m ago"; already-human
-// labels (e.g. the activity log's literal "just now") pass through untouched — we never
-// fabricate a precise time we don't have. Date-only strings (task createdAt) show the date.
-function humanTime(input: string | number | null | undefined): string {
-  if (input == null || input === '') return '';
-  if (typeof input === 'string' && Number.isNaN(Date.parse(input))) return input;
-  const dateOnly = typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input);
-  const d = new Date(input);
-  const ms = Date.now() - d.getTime();
-  if (!dateOnly && ms >= 0) {
-    if (ms < 60_000) return 'just now';
-    if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
-    if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
-  }
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  const datePart = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
-  if (dateOnly) return datePart;
-  return `${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${datePart}`;
-}
 
 // What each teammate actually does — outcome language, not vibes (CEO reframe).
 const empDesc: Record<string, string> = {

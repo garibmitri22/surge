@@ -6,6 +6,7 @@ import { getTasks, getEmployees, createTask, updateTaskStatus } from '@/lib/data
 import { runTask, getLeads, getDrafts } from '@/lib/leads';
 import { RunProgress } from '@/components/RunProgress';
 import type { Task, Employee } from '@/lib/mockData';
+import { humanTime } from '@/lib/time';
 
 const priorityColors: Record<string, string> = {
   high: '#ef4444',
@@ -261,25 +262,6 @@ export default function TasksPage() {
       )}
     </div>
   );
-}
-
-// Honest, human time. Date-only task createdAt → "Jun 8"; full timestamps → "3m ago"
-// / "2:14 PM · Jun 8". Already-human labels pass through; never fabricates a time.
-function humanTime(input: string | number | null | undefined): string {
-  if (input == null || input === '') return '';
-  if (typeof input === 'string' && Number.isNaN(Date.parse(input))) return input;
-  const dateOnly = typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input);
-  const d = new Date(input);
-  const ms = Date.now() - d.getTime();
-  if (!dateOnly && ms >= 0) {
-    if (ms < 60_000) return 'just now';
-    if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
-    if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
-  }
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  const datePart = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
-  if (dateOnly) return datePart;
-  return `${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${datePart}`;
 }
 
 // Short, human row title — first clause/sentence, capped — full detail lives behind
