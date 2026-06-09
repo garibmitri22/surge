@@ -95,7 +95,7 @@ export default function BriefingPage() {
         <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-primary)', lineHeight: 1.2, marginBottom: '6px' }}>
           Good morning, {userFirst}.
         </h1>
-        <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+        <p suppressHydrationWarning style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
           Week of {weekDates.start} – {weekDates.end} · {companyName}
         </p>
       </div>
