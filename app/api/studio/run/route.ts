@@ -52,7 +52,9 @@ const tools: Anthropic.Tool[] = [
   },
 ];
 
-async function executeTool(name: string, input: Record<string, unknown>, supabase: SupabaseServer, ctx: { companyId: string; counters: { pieces: number }; brief: string }): Promise<string> {
+interface StudioCtx { companyId: string; counters: { pieces: number }; brief: string; lastError: string | null }
+
+async function executeTool(name: string, input: Record<string, unknown>, supabase: SupabaseServer, ctx: StudioCtx): Promise<string> {
   if (name === 'create_content_piece') {
     const type = String(input.type ?? '').trim();
     const title = String(input.title ?? '').trim();
@@ -64,7 +66,12 @@ async function executeTool(name: string, input: Record<string, unknown>, supabas
       company_id: ctx.companyId, employee_id: EMPLOYEE_ID, type, platform, title, body,
       status: 'draft', brief: (input.brief as string)?.trim() || ctx.brief || null,
     });
-    if (error) return `ERROR saving piece: ${error.message}`;
+    if (error) {
+      // Remember the real DB error so the run can fail LOUDLY if nothing ends up saved
+      // (e.g. the content_pieces migration isn't applied) — never a silent fake success.
+      ctx.lastError = error.message;
+      return `ERROR saving piece: ${error.message}`;
+    }
     ctx.counters.pieces++;
     return `Saved ${type} for ${platform} (draft).`;
   }
@@ -160,7 +167,7 @@ RULES (binding):
     });
   }
 
-  const ctx = { companyId, counters, brief: angle };
+  const ctx: StudioCtx = { companyId, counters, brief: angle, lastError: null };
   const convo: Anthropic.MessageParam[] = [{ role: 'user', content: 'Create the batch now.' }];
   let reported = false;
   let lastText = '';
@@ -195,20 +202,35 @@ RULES (binding):
       break; // end_turn
     }
 
-    const thin = counters.pieces === 0;
-    const charged = thin ? 0 : estimateHours('nova_content');
-    const balanceAfter = await debitHours(supabase, companyId, charged, 'Nova content batch', { employeeId: EMPLOYEE_ID, refType: 'content', refId: runId });
-    if (charged > 0) {
-      await supabase.from('activity_log').insert({
-        id: 'a' + Date.now() + Math.floor(Math.random() * 1000),
-        company_id: companyId, employee_id: EMPLOYEE_ID,
-        action: `Drafted ${counters.pieces} content piece${counters.pieces > 1 ? 's' : ''} for your review`,
-        detail: angle || null, timestamp: 'just now', sort_order: Date.now(),
-      });
+    // HONEST OUTCOME — a run that saved ZERO pieces is NOT a success. Never return ok:true
+    // with pieces:0 (that made the UI cheer "Nova drafted 0 pieces — review them below" with
+    // nothing to review). Charge nothing (the customer never pays for a miss) and fail loudly,
+    // surfacing the real cause: a DB/save error (usually the content_pieces migration not being
+    // applied) vs. the model genuinely producing nothing.
+    if (counters.pieces === 0) {
+      await debitHours(supabase, companyId, 0, 'Nova content batch (no output)', { employeeId: EMPLOYEE_ID, refType: 'content', refId: runId }).catch(() => {});
+      const message = ctx.lastError
+        ? `Nova couldn't save her work (${ctx.lastError}). Nothing was produced — this usually means the content storage isn't set up yet. No hours were charged.`
+        : (lastText.trim()
+            ? `Nova didn't save any content this run. ${lastText.slice(0, 300)}`
+            : 'Nova finished without producing any content this run — nothing was saved. Give her a sharper angle and try again. No hours were charged.');
+      return Response.json({
+        ok: false, reason: ctx.lastError ? 'save_failed' : 'no_pieces',
+        created_this_run: counters, message, usage: { est_cost_usd: cost.usd },
+      }, { status: 422 });
     }
 
+    const charged = estimateHours('nova_content');
+    const balanceAfter = await debitHours(supabase, companyId, charged, 'Nova content batch', { employeeId: EMPLOYEE_ID, refType: 'content', refId: runId });
+    await supabase.from('activity_log').insert({
+      id: 'a' + Date.now() + Math.floor(Math.random() * 1000),
+      company_id: companyId, employee_id: EMPLOYEE_ID,
+      action: `Drafted ${counters.pieces} content piece${counters.pieces > 1 ? 's' : ''} for your review`,
+      detail: angle || null, timestamp: new Date().toISOString(), sort_order: Date.now(),
+    });
+
     return Response.json({
-      ok: true, created_this_run: counters, hours: { charged, balance: balanceAfter, thin },
+      ok: true, created_this_run: counters, hours: { charged, balance: balanceAfter, thin: false },
       usage: { est_cost_usd: cost.usd }, reported, message: lastText.slice(0, 1000),
     });
   } catch (err) {

@@ -472,9 +472,15 @@ HARD RULES: Never fabricate stats, customers, or claims you can't back. For an "
   async function writeColdEmail(lead: LeadRow): Promise<{ subject: string; body: string; variant: string }> {
     const l = lead as Record<string, unknown>;
     const adSignal = (l.relationship as string)?.trim() || '';
-    // A/B the AI-transparency P.S. — half get the cheeky owning-it line, half don't — so we
-    // can compare reply rates later (variant stored on the draft).
-    const variant = Math.random() < 0.5 ? 'ps' : 'no_ps';
+    // The transparent-AI P.S. ("an AI wrote this…") is SURGE'S OWN marketing voice — confident
+    // and cheeky about being an AI. That belongs ONLY on Surge's own outbound prospecting. A
+    // paying customer's Aria emailing THEIR leads must NEVER ship under that line: it's written
+    // in the customer's brand voice (see writingSystem above — "it's the customer's, not ours"),
+    // and "an AI wrote this" would be off-brand, even damaging, for them. So only Surge's own
+    // internal account (companies.is_internal) A/B-tests the P.S.; every customer run forces
+    // 'no_ps'. Fail-closed: a null/unknown company never gets the P.S.
+    const internalOutreach = company?.is_internal === true;
+    const variant = internalOutreach && Math.random() < 0.5 ? 'ps' : 'no_ps';
     const psInstruction = variant === 'ps'
       ? 'INCLUDE the transparent-AI P.S. — one short, confident, cheeky line owning that you are an AI (e.g. "An AI wrote this. You read the whole thing anyway. That\'s what I\'d do for every lead you get.").'
       : 'Do NOT include any P.S. — end at the last body line.';
