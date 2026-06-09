@@ -14,6 +14,26 @@ import { computeRunPhase, runProgressLabel } from '@/lib/run-progress.mjs';
 
 const empColors: Record<string, string> = { aria: '#a78bfa', nova: '#34d399', opus: '#60a5fa', atlas: '#f59e0b' };
 
+// Honest, human time. Real timestamps → "2:14 PM · Jun 8" or "3m ago"; already-human
+// labels (e.g. the activity log's literal "just now") pass through untouched — we never
+// fabricate a precise time we don't have. Date-only strings (task createdAt) show the date.
+function humanTime(input: string | number | null | undefined): string {
+  if (input == null || input === '') return '';
+  if (typeof input === 'string' && Number.isNaN(Date.parse(input))) return input;
+  const dateOnly = typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input);
+  const d = new Date(input);
+  const ms = Date.now() - d.getTime();
+  if (!dateOnly && ms >= 0) {
+    if (ms < 60_000) return 'just now';
+    if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
+    if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
+  }
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  const datePart = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+  if (dateOnly) return datePart;
+  return `${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${datePart}`;
+}
+
 // What each teammate actually does — outcome language, not vibes (CEO reframe).
 const empDesc: Record<string, string> = {
   aria: 'Finds and ranks new leads, drafts personalized outreach, and follows up automatically — so no prospect slips through.',
@@ -140,7 +160,11 @@ export default function Dashboard() {
 
   const currentTick = activityLog[tickIndex];
   const tickEmp = currentTick ? employees.find(e => e.id === currentTick.employeeId) : undefined;
-  const recentTasks = tasks.filter(t => t.status === 'in_progress').slice(0, 3);
+  const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
+  const recentTasks = inProgressTasks.slice(0, 3);
+  // HONEST live state: who is ACTUALLY working right now (has an in-progress task) —
+  // not the stored employee.status (seeded 'active' for everyone). Drives the header.
+  const workingCount = new Set(inProgressTasks.map(t => t.assigneeId)).size;
 
   if (activating) {
     // Phase-aware takeover: Queued → Researching (leads ticking) → Drafting → (lands on dashboard).
@@ -183,11 +207,16 @@ export default function Dashboard() {
             {greeting}, {userFirst}.{companyName && <span style={{ color: 'var(--accent)' }}> {companyName}</span>} HQ
           </h1>
           <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '6px', maxWidth: '640px', lineHeight: 1.5 }}>
-            Your AI workforce is finding leads, drafting outreach, and following up with prospects — around the clock.{' '}
-            <span style={{ color: 'var(--green)', fontWeight: '600' }}>
-              {employees.filter(e => e.status === 'active').length} online
-            </span>{' '}
-            now.
+            {workingCount > 0 ? (
+              <>
+                <span style={{ color: 'var(--green)', fontWeight: '600' }}>
+                  {workingCount} teammate{workingCount === 1 ? '' : 's'} working right now
+                </span>
+                {inProgressTasks.length > 0 && ` — ${inProgressTasks.length} task${inProgressTasks.length === 1 ? '' : 's'} in progress.`}
+              </>
+            ) : (
+              'Your team is ready. Give them a directive and their work shows up here in real time.'
+            )}
           </p>
         </div>
         <button onClick={() => router.push('/hire')} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 20px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -270,7 +299,7 @@ export default function Dashboard() {
             </>
           ) : 'No activity yet. Give your team a directive and their work shows up here in real time.'}
         </p>
-        {currentTick && <span style={{ fontSize: '11px', color: 'var(--text-dim)', flexShrink: 0 }}>{currentTick.timestamp}</span>}
+        {currentTick && <span style={{ fontSize: '11px', color: 'var(--text-dim)', flexShrink: 0 }}>{humanTime(currentTick.timestamp)}</span>}
       </div>
 
       {/* Main grid */}
@@ -372,6 +401,14 @@ export default function Dashboard() {
                 {members.map(e => {
                   const st = empStats[e.id] ?? emptyEmployeeStat();
                   const idle = st.activeTasks === 0;
+                  // Real, per-employee state from actual tasks — never the seeded e.status.
+                  const working = inProgressTasks.some(t => t.assigneeId === e.id);
+                  const queued = !working && st.activeTasks > 0;
+                  const work = working
+                    ? { dot: 'var(--green)', label: 'Working', pulse: true }
+                    : queued
+                    ? { dot: 'var(--amber)', label: 'Queued', pulse: false }
+                    : { dot: 'var(--text-dim)', label: 'Ready', pulse: false };
                   return (
                   <div key={e.id} onClick={() => router.push(`/workforce/${e.id}`)} className="table-row" style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: '14px', cursor: 'pointer' }}>
                     <div style={{ width: '34px', height: '34px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, border: `1px solid ${e.color}20` }}><EmployeeAvatar id={e.id} size={34} /></div>
@@ -386,8 +423,8 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, marginTop: '2px' }}>
-                      <div className={`status-${e.status}`} style={{ width: '7px', height: '7px', borderRadius: '50%' }} />
-                      <span style={{ fontSize: '10px', color: e.status === 'active' ? 'var(--green)' : e.status === 'idle' ? 'var(--amber)' : 'var(--text-dim)', textTransform: 'capitalize' }}>{e.status}</span>
+                      <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: work.dot, animation: work.pulse ? 'pulse-green 2s infinite' : 'none' }} />
+                      <span style={{ fontSize: '10px', color: work.dot, textTransform: 'capitalize' }}>{work.label}</span>
                     </div>
                   </div>
                   );
@@ -418,7 +455,7 @@ export default function Dashboard() {
                       <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{item.action}</p>
                       {item.detail && <p style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '2px' }}>{item.detail}</p>}
                     </div>
-                    <span style={{ fontSize: '10px', color: 'var(--text-dim)', flexShrink: 0, marginTop: '2px', whiteSpace: 'nowrap' }}>{item.timestamp}</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-dim)', flexShrink: 0, marginTop: '2px', whiteSpace: 'nowrap' }}>{humanTime(item.timestamp)}</span>
                   </div>
                 );
               })}

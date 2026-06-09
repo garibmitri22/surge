@@ -201,6 +201,7 @@ export default function TasksPage() {
                   {t.project && <span>Project: <span style={{ color: 'var(--text-secondary)' }}>{t.project}</span></span>}
                   <span>Owner: <span style={{ color: 'var(--text-secondary)' }}>{emp?.name ?? t.assigneeId}</span></span>
                   <span>Priority: <span style={{ color: priorityColors[t.priority] }}>{t.priority}</span></span>
+                  {t.createdAt && <span>Created: <span style={{ color: 'var(--text-secondary)' }}>{humanTime(t.createdAt)}</span></span>}
                   {t.dueDate && <span>Due: <span style={{ color: 'var(--text-secondary)' }}>{t.dueDate}</span></span>}
                 </div>
               </div>
@@ -260,6 +261,25 @@ export default function TasksPage() {
       )}
     </div>
   );
+}
+
+// Honest, human time. Date-only task createdAt → "Jun 8"; full timestamps → "3m ago"
+// / "2:14 PM · Jun 8". Already-human labels pass through; never fabricates a time.
+function humanTime(input: string | number | null | undefined): string {
+  if (input == null || input === '') return '';
+  if (typeof input === 'string' && Number.isNaN(Date.parse(input))) return input;
+  const dateOnly = typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input);
+  const d = new Date(input);
+  const ms = Date.now() - d.getTime();
+  if (!dateOnly && ms >= 0) {
+    if (ms < 60_000) return 'just now';
+    if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
+    if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
+  }
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  const datePart = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+  if (dateOnly) return datePart;
+  return `${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${datePart}`;
 }
 
 // Short, human row title — first clause/sentence, capped — full detail lives behind

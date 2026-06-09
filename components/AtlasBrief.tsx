@@ -16,7 +16,23 @@ import type { OrbState } from '@/lib/persona-orb';
 const BRIEF_ASK = 'Give me my morning brief for today.';
 const ATLAS_COLOR = '#f59e0b';
 
-interface Msg { role: 'user' | 'assistant'; content: string }
+interface Msg { role: 'user' | 'assistant'; content: string; createdAt?: string }
+
+// Honest, human time for message stamps: "3m ago" / "2:14 PM · Jun 8". Real times only.
+function humanTime(input: string | number | null | undefined): string {
+  if (input == null || input === '') return '';
+  if (typeof input === 'string' && Number.isNaN(Date.parse(input))) return input;
+  const d = new Date(input);
+  const ms = Date.now() - d.getTime();
+  if (ms >= 0) {
+    if (ms < 60_000) return 'just now';
+    if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
+    if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
+  }
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  const datePart = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+  return `${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${datePart}`;
+}
 
 export function AtlasBrief() {
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -38,7 +54,7 @@ export function AtlasBrief() {
         const res = await fetch('/api/chat?employeeId=atlas');
         const data = await res.json();
         if (data.conversationId) setConversationId(data.conversationId);
-        const history: Msg[] = (data.messages ?? []).map((m: Msg) => ({ role: m.role, content: m.content }));
+        const history: Msg[] = (data.messages ?? []).map((m: { role: Msg['role']; content: string; created_at?: string }) => ({ role: m.role, content: m.content, createdAt: m.created_at }));
         if (history.length > 0) { setMessages(history); setLoaded(true); return; }
       } catch { /* fall through to a fresh brief */ }
       setLoaded(true);
@@ -56,7 +72,8 @@ export function AtlasBrief() {
   async function stream(message: string, { brief = false } = {}) {
     if (streaming) return;
     setStreaming(true);
-    setMessages((prev) => (brief ? [{ role: 'assistant', content: '' }] : [...prev, { role: 'user', content: message }, { role: 'assistant', content: '' }]));
+    const now = new Date().toISOString();
+    setMessages((prev) => (brief ? [{ role: 'assistant', content: '', createdAt: now }] : [...prev, { role: 'user', content: message, createdAt: now }, { role: 'assistant', content: '', createdAt: now }]));
     try {
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -146,15 +163,19 @@ export function AtlasBrief() {
                     <EmployeeAvatar id="atlas" size={26} />
                   </div>
                 )}
-                <div style={{
-                  maxWidth: m.role === 'user' ? '78%' : '100%',
-                  background: m.role === 'user' ? 'var(--accent)' : 'transparent',
-                  color: m.role === 'user' ? '#fff' : 'var(--text-secondary)',
-                  borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '0',
-                  padding: m.role === 'user' ? '9px 13px' : '0',
-                  fontSize: '13.5px', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                }}>
-                  {m.content || (streaming && i === messages.length - 1 ? <TypingDots /> : '')}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: m.role === 'user' ? '78%' : '100%', minWidth: 0 }}>
+                  <div style={{
+                    background: m.role === 'user' ? 'var(--accent)' : 'transparent',
+                    color: m.role === 'user' ? '#fff' : 'var(--text-secondary)',
+                    borderRadius: m.role === 'user' ? '14px 14px 4px 14px' : '0',
+                    padding: m.role === 'user' ? '9px 13px' : '0',
+                    fontSize: '13.5px', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                  }}>
+                    {m.content || (streaming && i === messages.length - 1 ? <TypingDots /> : '')}
+                  </div>
+                  {m.createdAt && m.content && !(streaming && i === messages.length - 1) && (
+                    <span style={{ fontSize: '10px', color: 'var(--text-dim)', marginTop: '3px', padding: '0 2px' }}>{humanTime(m.createdAt)}</span>
+                  )}
                 </div>
                 {m.role === 'assistant' && m.content && !(streaming && i === messages.length - 1) && (
                   <div style={{ alignSelf: 'flex-end' }}>
