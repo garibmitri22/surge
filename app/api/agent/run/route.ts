@@ -93,7 +93,7 @@ const tools: Anthropic.Tool[] = [
       type: 'object',
       properties: {
         business_name: { type: 'string' },
-        vertical: { type: 'string', enum: ['med_spa', 'real_estate', 'gym', 'other'] },
+        vertical: { type: 'string', description: "The lead's actual industry as a short lowercase snake_case slug, derived from real research — e.g. 'roofing', 'hvac', 'med_spa', 'real_estate', 'dental', 'gym'. Match whatever industry the business is genuinely in; use 'other' only when it's genuinely unclear. Not a fixed list." },
         location: { type: 'string' },
         website: { type: 'string' },
         contact_name: { type: 'string' },

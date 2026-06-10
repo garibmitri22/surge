@@ -5,7 +5,15 @@ import { getLeads, getDrafts, getLeadMessages, callLeadNow, runTask, updateLeadS
 import { createTask, getTasks } from '@/lib/data';
 import { RunProgress } from '@/components/RunProgress';
 
-const VERTICAL_LABEL: Record<string, string> = { med_spa: 'Med Spa', real_estate: 'Real Estate', gym: 'Gym', other: 'Other' };
+// Humanize a free-form vertical slug for display — derived from the company's OWN lead data,
+// never a hardcoded GTM list. 'med_spa' → 'Med Spa', 'roofing' → 'Roofing'.
+function humanizeVertical(v: string): string {
+  return (v || '')
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ') || v;
+}
 const STATUS_COLOR: Record<string, string> = {
   new: '#9ca3af', inbound: '#0d9488', engaged: '#0891b2', qualified: '#6366f1', drafted: '#8b5cf6', contacted: '#0891b2',
   warm: '#ea580c', replied: '#16a34a', meeting: '#16a34a', won: '#16a34a', lost: '#ef4444', disqualified: '#9ca3af', recycled: '#d97706',
@@ -111,6 +119,9 @@ export default function LeadsPage() {
   const filtered = leads.filter((l) => (vFilter === 'all' || l.vertical === vFilter) && (sFilter === 'all' || l.status === sFilter));
   const warmCount = leads.filter((l) => ['warm', 'meeting'].includes(l.status)).length;
   const inboundCount = leads.filter((l) => ['inbound', 'engaged'].includes(l.status)).length;
+  // Vertical filter options derive from THIS company's own leads — the distinct verticals
+  // actually present, humanized. Never a hardcoded med_spa/real_estate/gym list.
+  const verticalOptions = Array.from(new Set(leads.map((l) => l.vertical).filter(Boolean))).sort();
 
   // Expand a lead; lazily load its SMS/call thread (inbound leads have one).
   function toggle(id: string) {
@@ -247,9 +258,12 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Filters — the Vertical filter is built from the company's own leads, and hidden
+          entirely when there's nothing to filter (0–1 distinct verticals). */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <FilterRow label="Vertical" value={vFilter} setValue={setVFilter} options={['all', 'med_spa', 'real_estate', 'gym', 'other']} fmt={(o) => (o === 'all' ? 'All' : VERTICAL_LABEL[o])} />
+        {verticalOptions.length > 1 && (
+          <FilterRow label="Vertical" value={vFilter} setValue={setVFilter} options={['all', ...verticalOptions]} fmt={(o) => (o === 'all' ? 'All' : humanizeVertical(o))} />
+        )}
         <FilterRow label="Status" value={sFilter} setValue={setSFilter} options={['all', 'qualified', 'drafted', 'contacted', 'warm', 'meeting', 'won', 'lost', 'disqualified']} fmt={(o) => (o === 'all' ? 'All' : stageLabel(o))} />
       </div>
 
@@ -310,7 +324,7 @@ export default function LeadsPage() {
                     <p style={{ fontSize: '11px', color: 'var(--text-dim)' }}>{l.origin === 'inbound' ? (l.phone || l.location || '—') : (l.location || '—')}</p>
                     <p style={{ fontSize: '10px', color: 'var(--green)', marginTop: '1px' }}>✓ {sourceLabel(l)} · verified {agoLabel(l.createdAt, nowTs)}</p>
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{VERTICAL_LABEL[l.vertical] || l.vertical}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{humanizeVertical(l.vertical)}</span>
                   <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--accent)', fontFamily: 'var(--font-geist-mono)' }}>{l.score}</span>
                   <select value={l.status} onClick={(e) => e.stopPropagation()} onChange={(e) => { e.stopPropagation(); moveLead(l, e.target.value); }} title="Move this lead — Aria respects your choice"
                     style={{ fontSize: '11px', color: STATUS_COLOR[l.status] || 'var(--text-dim)', background: (STATUS_COLOR[l.status] || '#9ca3af') + '18', border: `1px solid ${(STATUS_COLOR[l.status] || '#9ca3af')}40`, padding: '4px 6px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize', width: '100%' }}>

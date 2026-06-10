@@ -7,16 +7,19 @@ import { ImageButton } from '@/components/ImageButton';
 import { SpeakButton } from '@/components/SpeakButton';
 import { PresenceOrb } from '@/components/PresenceOrb';
 import type { OrbState } from '@/lib/persona-orb';
+import { getCompanyProfile } from '@/lib/data';
 
 interface Msg {
   role: 'user' | 'assistant';
   content: string;
 }
 
+// Static base chips. Aria's lead-gen chip (index 1) is a NEUTRAL fallback — it gets
+// replaced at runtime with one derived from the company's own ICP (see ChatPanel).
 const SUGGESTIONS: Record<string, string[]> = {
   aria: [
     'What are you working on right now?',
-    'Rank and qualify the top 50 med spas in Houston and book them',
+    'Find and rank 50 leads in your target market',
     'What should I know before our next sales push?',
   ],
   nova: [
@@ -60,6 +63,9 @@ export function ChatPanel({
   const [loaded, setLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const askFired = useRef(false);
+  // Aria's lead-gen suggestion chip, derived from the company's own ICP (target + geo) —
+  // never a hardcoded vertical. null until/unless an ICP is on file (neutral chip shows meanwhile).
+  const [ariaLeadSuggestion, setAriaLeadSuggestion] = useState<string | null>(null);
 
   // Load history once.
   useEffect(() => {
@@ -84,6 +90,20 @@ export function ChatPanel({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, streaming]);
+
+  // Aria's lead chip comes from the company's ICP — their target market in their words.
+  // If no ICP is set, the neutral fallback in SUGGESTIONS stays.
+  useEffect(() => {
+    if (employeeId !== 'aria') return;
+    let cancelled = false;
+    getCompanyProfile()
+      .then((p) => {
+        const target = (p?.targetCustomers || '').trim();
+        if (!cancelled && target) setAriaLeadSuggestion(`Find and rank the top 50 ${target} and book them`);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [employeeId]);
 
   async function send(text: string) {
     const msg = text.trim();
@@ -142,6 +162,13 @@ export function ChatPanel({
     ? (lastAssistantEmpty ? 'thinking' : 'talking')
     : (working ? 'working' : 'idle');
 
+  // Suggestion chips: swap in Aria's ICP-derived lead chip when we have one; otherwise the
+  // static base (which already carries the neutral fallback for Aria).
+  const baseSuggestions = SUGGESTIONS[employeeId] ?? SUGGESTIONS.aria;
+  const suggestions = employeeId === 'aria' && ariaLeadSuggestion
+    ? [baseSuggestions[0], ariaLeadSuggestion, baseSuggestions[2]]
+    : baseSuggestions;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '560px' }}>
       {/* Presence header — their orb, always reacting */}
@@ -164,7 +191,7 @@ export function ChatPanel({
               Ask what {name} is working on, give a directive to plan and assign, or just say hi.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '420px' }}>
-              {(SUGGESTIONS[employeeId] ?? SUGGESTIONS.aria).map((s) => (
+              {suggestions.map((s) => (
                 <button
                   key={s}
                   onClick={() => send(s)}
