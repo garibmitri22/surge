@@ -1,0 +1,3 @@
+# Stray full-project duplicate that lives inside the repo as an untracked dir.
+# Must never be uploaded as part of a deploy.
+surge/
