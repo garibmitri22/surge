@@ -1,5 +1,37 @@
 # Surge — Project Memory
 
+---
+## 🧭 MEMORY RECONCILIATION — July 21, 2026 (repo audited vs memory; this block is the current source of truth)
+**Why this exists:** MEMORY.md's detailed entries taper off around **June 5**, but the actual code shipped through **June 9, 2026** (last commit `0db7391`). The whole "mobile games" branch had moved weeks past what memory described. This block reconciles memory to the *verified repo state*. Entries BELOW this block are historical — accurate for their date, but read them knowing the code went further.
+
+### Verified facts (checked in the repo, July 21, 2026)
+- **Last actual development = June 9, 2026.** ~6 weeks of calendar since the last commit, zero commits in between → **development appears PAUSED since June 9** (working tree clean, nothing uncommitted). *Open question for Mitri: was there a deliberate pause?*
+- **Branch `claude/mobile-games-dev-815uxs` == `origin/main`** (identical HEAD, 0 ahead / 0 behind). All shipped work is already on our branch; it's a clean base.
+- **Build is GREEN** — `next build` compiles all ~45 routes with placeholder env (verified July 21).
+- **No `.env.local` in this environment** (secrets live only on Mitri's machine), so the app can't be *run* here and **live prod state cannot be verified from here.**
+
+### What shipped June 5→9 that memory under-documents (the app is FAR bigger than the "3 employees + chat" memory describes)
+1. **📱 Mobile + PWA — DONE.** The "mobile gate" that blocked cold sends is CLOSED: hamburger + slide-in drawer (`AppShell.tsx`, SSR-safe), `page-pad` responsive tightening on every app page, `manifest.ts`, apple-icon, service worker (`public/sw.js`, push listener present but DORMANT), offline page.
+2. **Friends-feedback P0/P1 — all shipped:** real user name (no more hardcoded "Mitri"), mobile tasks Run reachable, voice input/STT on chat, onboarding trim, image upload (Claude vision), Jarvis TTS.
+3. **🎙️ JARVIS VOICE STACK (major, undocumented):** Phase 1 ElevenLabs per-agent TTS → Phase 2 Deepgram STT → Phase 3 **hands-free real-time voice conversation with Atlas.** Cinematic WebGL **PresenceOrb** + per-agent `/agents/[id]` pages. Voices centralized in `lib/voices.mjs` (Aria = "Matilda"). Routes: `voice/{call,connect,llm,meter,session}`, `stt`, `tts`. Env needed: ElevenLabs + Deepgram keys.
+4. **🎯 THE WEDGE — lead-gen WARM LOOP (built):** deeper research + **warm-signal architecture** via tracked links (`r/[code]`, `book/[token]`, `capture/[token]`), **inbound capture + speed-to-lead** (B2C motion, `inbound/{lead,google,meta,sms,capture-link}`), **database reactivation** (consent-first, wake the owner's existing list), owner ping. Libs: `inbound.mjs`, `reactivation.mjs`, `sign.mjs`, `sms-responder.ts`, `twilio.mjs`. Migrations: `warm_signal`, `tracked_links`, `inbound`, `reactivation`, `activation`.
+5. **🎨 Nova's Studio — built** (`/studio` + `/api/studio/run`, `content.ts`, `content_migration`). Her surface, like `/leads` is Aria's.
+6. **📧 Weekly CEO Briefing email — built** (the day-14 retention anchor: `briefing.mjs`, `briefing_migration`, `verify-weekly-briefing`).
+7. **🛠️ Ops-now:** `is_internal` owner-unlimited flag (RLS-hardened via trigger so owners can't self-grant) + Sentry error alerting. `internal_flag_migration`.
+8. **Hire/Department experience** (`/hire`, `hire/waitlist`, `departments.mjs`, `hiring_migration`).
+9. **Data-driven vertical packs** (med spa pack #2, selectable onboarding templates, `lib/verticals/`), active-advertiser segment + A/B/C cold-email tone, day-one activation, **manual CRM controls**, run-progress UI.
+10. **Pipeline robustness (June 7):** timeout-proof async runs, parallel drafting, robust draft persistence, wall-clock research budget.
+11. **Track A/B/C (June 8–9):** visual repositioning + premium framer-motion (reduced-motion safe), app-truth honest live state, real backend timestamps (`lib/time.ts`); **de-hardcode med-spa GTM** — verticals/suggestions now derived per company.
+- **Every feature ships with a migration + a `scripts/verify-*.mjs` harness** (30+ verify scripts). `supabase/APPLY_ALL_PENDING.sql` consolidates the June-6 migrations, idempotent.
+
+### ❓ OPEN QUESTIONS FOR MITRI (cannot verify from this environment — need his answer)
+1. Was development deliberately **paused after June 9**? What happened in the ~6-week gap?
+2. Did the **send-freeze ever lift** — did any real cold emails go out to prospects?
+3. **First paying customer** yet?
+4. Are **all pending migrations applied** in the live Supabase (esp. `APPLY_ALL_PENDING.sql`, voice, warm-signal, inbound)?
+5. Is the **live site at surgehq.io** current with this June-9 code, and are the voice env keys (ElevenLabs/Deepgram) set in Vercel?
+---
+
 ## What It Is
 **Surge** is an AI Workforce Platform. Businesses hire AI employees instead of traditional hires.
 - Mission: Build the operating system for AI workers
@@ -371,13 +403,12 @@ Dev's structural update PASSED review: 2×2 team grid w/ Atlas ("Included in eve
 ## Recurring
 - **Daily meeting scheduled — 8:00 AM every day** (Cowork scheduled task `surge-daily-meeting`): reads CLAUDE.md/MEMORY.md/CEO.md, delivers status → working → at-risk → next 3 moves.
 
-## Business Model
-- $299/month per AI employee
-- Basic: 1 employee | Growth: 3 employees | Enterprise: unlimited + custom training
+## Business Model  ⚠️ STALE — SUPERSEDED (see the top reconciliation block + the June-6 "Business Model" section: $399 single / $999 team, hours-metered)
+- ~~$299/month per AI employee~~ (old)
+- ~~Basic: 1 employee | Growth: 3 employees | Enterprise: unlimited + custom training~~ (old)
 - Goal: First paying customer ASAP
 
-## Key Files
-- Mock data: `lib/mockData.ts`
+## Key Files  ⚠️ STALE — SUPERSEDED (see the "Key Files" section higher up: lib/pricing.mjs, lib/chat-prompt.mjs, personas/, etc.)
+- ~~Mock data: `lib/mockData.ts`~~ (now types-only)
 - Global styles + CSS vars: `app/globals.css`
 - Sidebar: `components/Sidebar.tsx`
-- All pages: `app/dashboard/`, `app/workforce/`, `app/workforce/[id]/`, `app/tasks/`, `app/memory/`
